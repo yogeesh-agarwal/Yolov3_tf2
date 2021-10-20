@@ -4,7 +4,12 @@ import numpy as np
 import sys
 
 class Yolov3Loss(tf.keras.losses.Loss):
-    def __init__(self , base_grid , grid_scale , num_classes , anchors , name = "Yolov3_loss"):
+    def __init__(self ,
+                 base_grid ,
+                 grid_scale ,
+                 num_classes ,
+                 anchors ,
+                 name = "Yolov3_loss"):
         super().__init__(name = name)
         self.epsilon = 1e-6
         self.input_dim = 416
@@ -105,7 +110,7 @@ class Yolov3Loss(tf.keras.losses.Loss):
                                      gt_class,
                                      pred_class)
         loss = (coord_loss + conf_loss + class_loss) * self.grid_dim  # multiply with grid dim as current loss is normalized , cal wrt to the grid.
-        tf.print("coord_loss : " , coord_loss , ", conf_loss : " , conf_loss , ", class_loss : " , class_loss)
+        # tf.print("coord_loss : " , coord_loss , ", conf_loss : " , conf_loss , ", class_loss : " , class_loss)
         return loss
 
     # overriding call method to implement custom loss logic

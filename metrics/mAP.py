@@ -1,5 +1,7 @@
 from Yolov3_tf2.postprocessing import post_processing
 from Yolov3_tf2.metrics import utils as metric_utils
+from Yolov3_tf2.metrics import unit_metrics
+from Yolov3_tf2.metrics import precision_recall
 import tensorflow as tf
 import numpy as np
 
@@ -88,8 +90,8 @@ class MeanAveragePrecision(tf.keras.metrics.Metric):
         self.average_precision = AveragePrecision(self.precision , self.recall , self.num_classes)
 
         # metric to keep track of AP for all classes , mean of this metric will be input to mAP metric.
-        self.ap_per_class = tf.Variable(0. ,
-                                        shape = (self.num_classes) ,
+        self.ap_per_class = tf.Variable(np.zeros(shape = [self.num_classes], dtype = np.float32) ,
+                                        shape = (self.num_classes,) ,
                                         dtype = tf.float32 ,
                                         name = "AP_per_class")
         # metric to keep track of mAP for all classes across all batches for an epoch
@@ -129,5 +131,5 @@ class MeanAveragePrecision(tf.keras.metrics.Metric):
         self.precision.reset_state()
         self.recall.reset_state()
         self.average_precision.reset_state()
-        self.ap_per_class = tf.zeros(shape = (self.num_classes))
+        self.ap_per_class = tf.zeros(shape = (self.num_classes,))
         self.mAP.reset_state()

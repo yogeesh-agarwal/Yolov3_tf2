@@ -1,7 +1,7 @@
 import pickle
 import numpy as np
 import tensorflow as tf
-from layers import ConvBlock , ResidualBlock , InterConvBlocks
+from Yolov3_tf2.model.layers import ConvBlock , ResidualBlock , InterConvBlocks
 
 class Darknet53(tf.keras.Model):
     def __init__(self, darknet53_weights_file , darknet53_bn_file):
@@ -111,5 +111,3 @@ def test_model():
     tf.keras.utils.plot_model(darknet.build_graph(), to_file='./arch_png/darknetv3.png', show_shapes=True, show_dtype=False,
                               show_layer_names=True, rankdir='TB', expand_nested=True, dpi=96,
                               layer_range=None)
-
-test_model()

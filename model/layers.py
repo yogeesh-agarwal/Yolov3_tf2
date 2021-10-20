@@ -41,6 +41,7 @@ class ConvBlock(tf.keras.layers.Layer):
     def build(self, input_shape):
         self.padding = "SAME"
         self.strides = [1,1,1,1]
+        # if model is darknet , use pretrained model weights
         if self.darknet:
             if self.conv_weights is None or self.bn_weights is None:
                 raise Exception("weights for this layer " , self.layer_name , " are not available")
@@ -53,10 +54,12 @@ class ConvBlock(tf.keras.layers.Layer):
             self.variance = self.bn_weights["variance"]
             self.beta = self.bn_weights["beta"]
             self.gamma = self.bn_weights["gamma"]
+
+        # else , create weight and biases for conv opr , also create batch_norm layer.
         else:
             if not self.kernel_size:
                 raise Exception("kernel Size is not available")
-            print((self.kernel_size, self.kernel_size , input_shape[-1] , self.num_filters))
+            # print((self.kernel_size, self.kernel_size , input_shape[-1] , self.num_filters))
             self.kernel = self.add_weight(shape = [self.kernel_size, self.kernel_size , input_shape[-1] , self.num_filters],
                                           initializer  = "random_normal" ,
                                           dtype = tf.float32 ,
@@ -66,7 +69,7 @@ class ConvBlock(tf.keras.layers.Layer):
                                             initializer = "random_normal" ,
                                             dtype = tf.float32 ,
                                             trainable = True)
-
+            self.batch_norm = tf.keras.layers.BatchNormalization()
         super(ConvBlock , self).build(input_shape = input_shape)
 
     def call(self , inputs):
@@ -77,7 +80,7 @@ class ConvBlock(tf.keras.layers.Layer):
             if self.darknet:
                 x = tf.nn.batch_normalization(x , self.mean , self.variance , self.beta , self.gamma , 1e-05)
             else:
-                x = tf.keras.layers.BatchNormalization()(x , training = True)
+                x = self.batch_norm(x , training = True)
         else:
             if self.darknet:
                 raise Exception("base network (darknet) does not have a bias addition after conv opr.")

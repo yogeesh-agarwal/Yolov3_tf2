@@ -1,8 +1,9 @@
+from Yolov3_tf2 import utils as comman_utils
 import numpy as np
 import os
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    return 1 / (1 + np.exp(x * -1))
 
 def softmax(x , axis = -1 , t = -100):
     x = x - np.max(x)
@@ -19,9 +20,9 @@ def modify_locs_util(localizations , anchors , img_shape = [416, 416] , ground_t
     cell_grid = comman_utils.gen_cell_grid(grid_shape[0] , grid_shape[1] , num_anchors)
 
     if not ground_truth:
-        xy = pp_utils.sigmoid(localizations[... , 0:2]) + cell_grid
-        conf = pp_utils.sigmoid(localizations[... , 4])
-        classes = pp_utils.softmax(localizations[... , 5:])
+        xy = sigmoid(localizations[... , 0:2]) + cell_grid
+        conf = sigmoid(localizations[... , 4])
+        classes = softmax(localizations[... , 5:])
     else:
         xy = localizations[... , 0:2]
         conf = localizations[... , 4]

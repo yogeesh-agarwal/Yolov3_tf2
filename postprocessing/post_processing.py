@@ -115,7 +115,7 @@ def post_process(predictions,
                  ground_truth = None,
                  show_output = False):
 
-    num_images = predictions.shape[0]
+    num_images = predictions[0].shape[0]
     scale_anchors = [anchors[0:3] , anchors[3:6] , anchors[6:9]]
 
     # all_predictions split shape = [[batch_size , 13*13*3 , 7] , [batch_size , 26*26*3 , 7] , [batch_size , 52*52*3 , 7]]

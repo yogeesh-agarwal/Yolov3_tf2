@@ -38,7 +38,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.base_grid_height = base_grid_size
         self.image_names = self.load_pickle(image_names)
         self.train_data = self.load_pickle(instances_file)
-        self.num_train_instances = len(self.train_data)
+        # self.num_train_instances = len(self.train_data)
+        self.num_train_instances = 10
 
         sometimes = lambda aug : iaa.Sometimes(0.55, aug)
         self.augmentor = iaa.Sequential([
@@ -131,7 +132,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                 dummy_box = utils.BoundingBox(0 , 0 ,object[2] , object[3])
                 for anchor_index in range(len(self.anchors)):
                     anchor_box = utils.BoundingBox(0 , 0 , self.anchors[anchor_index][0] , self.anchors[anchor_index][1])
-                    iou = dummy_box.iou(anchor_box)
+                    iou = dummy_box.cal_iou(anchor_box)
                     if iou > max_iou:
                         max_iou = iou
                         best_anchor_index = anchor_index
@@ -173,7 +174,6 @@ class DataGenerator(tf.keras.utils.Sequence):
 
     def on_epoch_end(self):
         if self.shuffle:
-            # pdb.set_trace()
             np.random.shuffle(self.image_names)
 
     def load_data(self  , index):
@@ -184,11 +184,13 @@ class DataGenerator(tf.keras.utils.Sequence):
             starting_index = ending_index - self.batch_size
 
         encoded_images , encoded_labels_large_objects , encoded_labels_medium_objects , encoded_labels_small_objects , detector_indexes = self.encode_data(starting_index , ending_index)
-        return encoded_images, [encoded_labels_large_objects, encoded_labels_medium_objects , encoded_labels_small_objects , detector_indexes]
+        return encoded_images, [encoded_labels_large_objects, encoded_labels_medium_objects , encoded_labels_small_objects] , detector_indexes
 
     def __len__(self):
         return self.num_train_instances
 
     def __getitem__(self, index):
-        encoded_images , encoded_labels = self.load_data(index)
-        return encoded_images, encoded_labels
+        encoded_images , encoded_labels , _ = self.load_data(index)
+        # keep in mind to bundle images and labels in a "tuple" , else keras will cry cause of its internal tuple centerd checks.
+        return (np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3),
+                        encoded_labels)
