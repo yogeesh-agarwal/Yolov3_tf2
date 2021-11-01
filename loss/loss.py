@@ -9,6 +9,7 @@ class Yolov3Loss(tf.keras.losses.Loss):
                  grid_scale ,
                  num_classes ,
                  anchors ,
+                 summary_writer = None,
                  name = "Yolov3_loss"):
         super().__init__(name = name)
         self.epsilon = 1e-6
@@ -20,17 +21,22 @@ class Yolov3Loss(tf.keras.losses.Loss):
         self.ignore_thresh = 0.5
         self.num_classes = num_classes
         self.num_anchors = len(anchors)
+        self.summary_writer = summary_writer
         self.grid_dim = base_grid * grid_scale
         self.anchors = tf.reshape(anchors , [1,1,1,3,2])
         if grid_scale == 1:
             self.mask_logging_string = "file://../data/large_objects_masks.txt"
-            self.logging_string = "file://../data/large_object_losses.txt"
+            self.logging_string = "file://../data/losses/large_object_losses.txt"
+            self.loss_string = "large_obj_loss"
         elif grid_scale == 2:
             self.mask_logging_string = "file://../data/medium_objects_masks.txt"
-            self.logging_string = "file://../data/medium_object_losses.txt"
+            self.logging_string = "file://../data/losses/medium_object_losses.txt"
+            self.loss_string = "medium_obj_losses"
         else:
             self.mask_logging_string = "file://../data/small_objects_masks.txt"
-            self.logging_string = "file://../data/small_object_losses.txt"
+            self.logging_string = "file://../data/losses/small_object_losses.txt"
+            self.loss_string = "small_obj_loss"
+
         self.grid_norm = tf.reshape(tf.cast([self.grid_dim , self.grid_dim] , tf.float32) , [1,1,1,1,2])
         self.net_norm = tf.reshape(tf.cast([self.input_dim , self.input_dim] , tf.float32) , [1,1,1,1,2])
 
@@ -78,6 +84,7 @@ class Yolov3Loss(tf.keras.losses.Loss):
         pred_xy , pred_wh = preds
         xy_loss = tf.reduce_sum(tf.square(coord_mask * (pred_xy - gt_xy)))
         wh_loss = tf.reduce_sum(tf.square(coord_mask * (pred_wh - gt_wh)))
+        tf.print("xy_loss : " , xy_loss , " , wh_loss : " , wh_loss , "\n" , output_stream = self.logging_string)
         return xy_loss + wh_loss
 
     def conf_loss(self , conf_masks , gt_conf , pred_conf):
@@ -110,7 +117,7 @@ class Yolov3Loss(tf.keras.losses.Loss):
                                      gt_class,
                                      pred_class)
         loss = (coord_loss + conf_loss + class_loss) * self.grid_dim  # multiply with grid dim as current loss is normalized , cal wrt to the grid.
-        # tf.print("coord_loss : " , coord_loss , ", conf_loss : " , conf_loss , ", class_loss : " , class_loss)
+        tf.print("coord_loss : " , coord_loss , ", conf_loss : " , conf_loss , ", class_loss : " , class_loss , " \ttotal_loss : " , loss , output_stream = self.logging_string)
         return loss
 
     # overriding call method to implement custom loss logic

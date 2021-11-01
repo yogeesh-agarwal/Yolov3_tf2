@@ -42,7 +42,6 @@ if __name__ == "__main__":
     kmax = 11
     for image_name in train_data:
         for object in train_data[image_name]:
-            print(object)
             width = object[2]
             height = object[3]
             boxes_wh.append([width , height])

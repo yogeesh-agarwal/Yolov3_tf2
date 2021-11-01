@@ -71,16 +71,7 @@ class Yolov3(tf.keras.Model):
         self.val_mAP = MeanAveragePrecision(self.num_classes , self.anchors)
 
     def upsampling_block(self , inputs , output_shape):
-        try:
-            new_height = int(output_shape[1])
-            new_width = int(output_shape[2])
-        except Exception as e:
-            print("\n" + str(e))
-            if output_shape[-1] == 512:
-                new_height , new_width = 26,26
-            else:
-                new_height , new_width = 52,52
-
+        new_height , new_width = output_shape[1] , output_shape[2]
         resize_shape = [new_height, new_width]
         return tf.image.resize(inputs , resize_shape)
 
@@ -92,7 +83,7 @@ class Yolov3(tf.keras.Model):
                             name = "large_scale_preds")
 
         conv_85 = self.conv_85(conv_80)
-        upsampling_shape_1 = concat_2.shape
+        upsampling_shape_1 = tf.shape(concat_2)
         upsample_1 = self.upsampling_block(conv_85 , upsampling_shape_1)
         route_1 = tf.concat([upsample_1 , concat_2] , axis = -1)
         conv_92 , conv_93 = self.icb2(route_1)
@@ -101,7 +92,7 @@ class Yolov3(tf.keras.Model):
                              name = "medium_scale_preds")
 
         conv_97 = self.conv_97(conv_92)
-        upsampling_shape_2 = concat_1.shape
+        upsampling_shape_2 = tf.shape(concat_1)
         upsample_2 = self.upsampling_block(conv_97 , upsampling_shape_2)
         route_2 = tf.concat([upsample_2 , concat_1] , axis = -1)
         conv_104 , conv_105 = self.icb3(route_2)

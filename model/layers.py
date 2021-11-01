@@ -16,6 +16,8 @@ class ConvBlock(tf.keras.layers.Layer):
                  num_filters = None ,
                  conv_weights = None ,
                  **kwargs):
+
+        self.index = index
         self.layer_name = name + "_" + str(index)
         if darknet:
             self.layer_name += "_darknet"
@@ -63,12 +65,14 @@ class ConvBlock(tf.keras.layers.Layer):
             self.kernel = self.add_weight(shape = [self.kernel_size, self.kernel_size , input_shape[-1] , self.num_filters],
                                           initializer  = "random_normal" ,
                                           dtype = tf.float32 ,
-                                          trainable = True)
+                                          trainable = True,
+                                          name = "weights_{}".format(self.index))
             if self.do_bias:
                 self.bias = self.add_weight(shape = ([self.num_filters]),
                                             initializer = "random_normal" ,
                                             dtype = tf.float32 ,
-                                            trainable = True)
+                                            trainable = True,
+                                            name = "biases_{}".format(self.index))
             self.batch_norm = tf.keras.layers.BatchNormalization()
         super(ConvBlock , self).build(input_shape = input_shape)
 
@@ -78,7 +82,7 @@ class ConvBlock(tf.keras.layers.Layer):
         x = tf.nn.conv2d(inputs, self.kernel , self.strides , self.padding)
         if not self.do_bias:
             if self.darknet:
-                x = tf.nn.batch_normalization(x , self.mean , self.variance , self.beta , self.gamma , 1e-05)
+                x = tf.nn.batch_normalization(x , self.mean , self.variance , self.beta , self.gamma , 1e-03)
             else:
                 x = self.batch_norm(x , training = True)
         else:

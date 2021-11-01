@@ -2,3 +2,4 @@
 /data/*.pickle
 /data/*.npy
 /*/__pycache__/
+/saved_models/*

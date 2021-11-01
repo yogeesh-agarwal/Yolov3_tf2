@@ -121,6 +121,32 @@ def cal_iou(gt_xy , gt_wh , pred_xy , pred_wh):
     iou = tf.truediv(overlap_area , union_area)
     return iou
 
+def cal_giou(gt_xy , gt_wh , pred_xy , pred_wh):
+    gt_mins = gt_xy - (gt_wh / 2.)
+    gt_maxs = gt_xy + (gt_wh / 2.)
+    pred_mins = pred_xy - (pred_wh / 2.)
+    pred_maxs = pred_xy + (pred_wh / 2.)
+
+    overlap_mins = tf.maximum(gt_mins , pred_mins)
+    overlap_maxs = tf.minimum(gt_maxs , pred_maxs)
+    overlap_wh = tf.maximum(overlap_maxs - overlap_mins , 0.)
+
+    gt_area = gt_wh[... , 0] * gt_wh[... , 1]
+    pred_area = pred_wh[... , 0] * pred_wh[... , 1]
+    overlap_area = overlap_wh[... , 0] * overlap_wh[... , 1]
+    union_area = pred_area + gt_area - overlap_area
+    iou = tf.truediv(overlap_area , union_area)
+
+    # calculate smallest closed convex surface:
+    convex_mins = tf.minimum(gt_mins , pred_mins)
+    convex_maxs = tf.maximum(gt_maxs , pred_maxs)
+    convex_wh = tf.maximum(convex_maxs - convex_mins , 0.)
+    convex_area = convex_wh[... , 0] * convex_wh[... , 1]
+
+    giou = iou - ((convex_area - union_area) / convex_area)
+    return giou
+
+
 def sort_anchors(anchors):
     anchors = np.reshape(anchors, [9,2])
     anchor_areas = {}

@@ -1,9 +1,9 @@
-from Yolov3_tf2.postprocessing import post_processing
-from Yolov3_tf2.metrics import utils as metric_utils
-from Yolov3_tf2.metrics import unit_metrics
-from Yolov3_tf2.metrics import precision_recall
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+from Yolov3_tf2.metrics import unit_metrics
+from Yolov3_tf2.metrics import utils as metric_utils
+from Yolov3_tf2.metrics import precision_recall
+from Yolov3_tf2.postprocessing import tf_postprocessing
 
 # calculates f1_score for a class
 class F1_score(tf.keras.metrics.Metric):
@@ -97,12 +97,12 @@ class MeanAveragePrecision(tf.keras.metrics.Metric):
         # metric to keep track of mAP for all classes across all batches for an epoch
         self.mAP = tf.keras.metrics.Mean(name = "mAP")
 
-
     def update_state(self , ground_truth , predictions , sample_weights = None):
-        box_objects = post_processing.post_process(predictions ,
+        box_objects = tf_postprocessing.post_process(predictions ,
                                                    self.anchors ,
                                                    ground_truth = ground_truth ,
                                                    num_classes = self.num_classes)
+        exit(0)
         num_instances = pred_box_objects.shape[0]
         #shape = [batch_size , objects_per_instance]
         pred_box_objects , gt_box_objects = box_objects

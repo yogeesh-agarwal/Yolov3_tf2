@@ -38,13 +38,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.base_grid_height = base_grid_size
         self.image_names = self.load_pickle(image_names)
         self.train_data = self.load_pickle(instances_file)
-        # self.num_train_instances = len(self.train_data)
-        self.num_train_instances = 10
+        self.num_train_instances = min(len(self.train_data) , 5000)
 
         sometimes = lambda aug : iaa.Sometimes(0.55, aug)
         self.augmentor = iaa.Sequential([
             iaa.Fliplr(0.5),
-            iaa.Flipud(0.3),
+            iaa.Flipud(0.1),
             sometimes(iaa.Affine(
                 rotate = (-20 , 20),
                 shear = (-13 , 13),
@@ -186,11 +185,20 @@ class DataGenerator(tf.keras.utils.Sequence):
         encoded_images , encoded_labels_large_objects , encoded_labels_medium_objects , encoded_labels_small_objects , detector_indexes = self.encode_data(starting_index , ending_index)
         return encoded_images, [encoded_labels_large_objects, encoded_labels_medium_objects , encoded_labels_small_objects] , detector_indexes
 
+    def load_data_for_test(self , index):
+        encoded_images , encoded_labels , detector_indexes = self.load_data(index)
+        return encoded_images , encoded_labels , detector_indexes
+
     def __len__(self):
-        return self.num_train_instances
+        return math.ceil(self.num_train_instances / self.batch_size)
 
     def __getitem__(self, index):
         encoded_images , encoded_labels , _ = self.load_data(index)
         # keep in mind to bundle images and labels in a "tuple" , else keras will cry cause of its internal tuple centerd checks.
         return (np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3),
                         encoded_labels)
+        # encoded_labels_dict = {"large_scale_preds" : encoded_labels[0],
+        #                        "medium_scale_preds" : encoded_labels[1],
+        #                        "small_scale_preds" : encoded_labels[2]}
+        # return (np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3),
+        #                 encoded_labels_dict)
