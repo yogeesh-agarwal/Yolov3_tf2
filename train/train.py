@@ -17,12 +17,22 @@ def gen_callbacks(tb_ld , cp_path):
                                                              save_best_only = True,
                                                              monitor = "train_loss",
                                                              save_weights_only = True)
-    return [tensorboard_callback , checkpoint_callback]
 
-def get_epoch_number(latest_chkpnt):
-    chkpnt_name = latest_chkpnt.split(".ckpt")[0]
-    epoch_number = chkpnt_name.split("-")[1]
-    return int(epoch_number)
+    reduce_on_plateau_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor = "train_loss",
+                                                                      factor = 0.5,
+                                                                      patience = 50,
+                                                                      verbose = 1,
+                                                                      mode = "min",
+                                                                      min_lr = 1e-6)
+    return [tensorboard_callback , checkpoint_callback , reduce_on_plateau_callback]
+
+# def get_epoch_number(latest_chkpnt):
+    # chkpnt_name = latest_chkpnt.split(".ckpt")[0]
+    # epoch_number = chkpnt_name.split("-")[1]
+    # return int(epoch_number)
+
+def get_epoch_number():
+    return 0
 
 def train(input_size,
           base_grid_size,
@@ -47,7 +57,7 @@ def train(input_size,
 
     train_summary_writer = tf.summary.create_file_writer(logs_dir)
     tf.summary.experimental.set_step(0)
-    callbacks = gen_callbacks(logs_dir+"/loss" , save_dir+"cp-{epoch:04d}.ckpt")
+    callbacks = gen_callbacks(logs_dir+"/loss" , save_dir+"yolov3.ckpt")
     train_data_generator = DataGenerator(input_size ,
                                          base_grid_size ,
                                          grid_scales ,
@@ -83,7 +93,7 @@ def train(input_size,
     else:
         latest_chkpnt = tf.train.latest_checkpoint(save_dir)
         face_detector.load_weights(latest_chkpnt)
-        epoch_number = get_epoch_number(latest_chkpnt)
+        epoch_number = get_epoch_number()
         print("Resuming training with partially trained model from epoch : " , epoch_number)
 
     face_detector.compile(optimizer = tf.keras.optimizers.Adam(learning_rate = init_lr) ,
@@ -101,9 +111,9 @@ def main():
     input_size = 416
     base_grid_size = 13
     grid_scales = [1,2,4]
-    batch_size = 32
+    batch_size = 1
     num_epochs = 1000
-    init_lr = 0.00001
+    init_lr = 0.0001
     logs_dir = "../logs/"
     save_dir = "../saved_models/"
     train_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_train/WIDER_train/images/"
@@ -114,7 +124,7 @@ def main():
     val_image_names = "../data/wider_val_images_names.pickle"
     labels = ["Face" , "Non_Face"]
     is_norm = True
-    is_augment = True
+    is_augment = False
     darknet53_weights = "../data/conv_weights.pickle"
     darknet53_bn = "../data/bn_weights.pickle"
 

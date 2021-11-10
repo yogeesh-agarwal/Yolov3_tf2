@@ -27,10 +27,12 @@ def transform_bbox(bbox , img_shape = [416 , 416]):
     return np.concatenate([adjusted_x_center , adjusted_y_center , adjusted_w , adjusted_h] , axis = -1)
 
 def modify_locs(raw_locs , scale_anchors , gt = False):
+    grid_scale = [1,2,4]
     modified_localizations = []
     for i in range(len(raw_locs)):
         localizations = raw_locs[i]
-        this_scale_anchor = np.reshape(scale_anchors[i] , [1,1,1,3,2]).astype(np.float32)
+        ratio = 416 / (13 * grid_scale[i])
+        this_scale_anchor = np.reshape(scale_anchors[i] , [1,1,1,3,2]).astype(np.float32) / ratio
         modified_loc = pp_utils.modify_locs_util(localizations , this_scale_anchor , ground_truth = gt)
         modified_localizations.append(modified_loc)
     all_locs = np.concatenate([modified_localizations[0] , modified_localizations[1] , modified_localizations[2]] , axis = 1)
@@ -114,7 +116,7 @@ def post_process(predictions,
                  ground_truth = None,
                  show_image = False):
 
-    filter_threshold = 0.45
+    filter_threshold = 0.65
     scale_anchors = [anchors[0:3] , anchors[3:6] , anchors[6:9]]
     numpy_predictions = [predictions[key].numpy().astype(np.float32) for key in predictions]
     num_images = numpy_predictions[0].shape[0]

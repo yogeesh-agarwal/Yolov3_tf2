@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-import loss
+import loss as loss
 
 def test_loss():
     gt_yolo1 = np.random.random(size = [1,13,13,3,7]).astype(np.float32)

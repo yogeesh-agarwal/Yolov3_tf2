@@ -82,12 +82,12 @@ def test_preprocess():
                                 try:
                                     print(f"org_label : {label[h , w , a]}")
                                     print(f"x : {label[h,w,a,0]} , y : {label[h,w,a,1]}")
-                                    if label[h , w , a , 0] >= grid_size or label[h , w , a, 1] >= grid_size:
-                                        raise Exception("center dimension are not preoper encoded , " , grid_size)
-                                    x_center = int(math.floor(label[h , w , a, 0] * mul_factor))
-                                    y_center = int(math.floor(label[h , w , a, 1] * mul_factor))
-                                    width = int(math.floor(np.exp(label[h , w, a , 2]) * new_sorted_anchors[anchor_index][0]))
-                                    height = int(math.floor(np.exp(label[h , w, a , 3]) * new_sorted_anchors[anchor_index][1]))
+                                    x_center = int(label[h , w , a, 0])
+                                    y_center = int(label[h , w , a, 1])
+                                    # width = int(math.floor(np.exp(label[h , w, a , 2]) * new_sorted_anchors[anchor_index][0]))
+                                    # height = int(math.floor(np.exp(label[h , w, a , 3]) * new_sorted_anchors[anchor_index][1]))
+                                    width = int(label[h,w,a,2])
+                                    height = int(label[h,w,a,3])
                                     print(f"final dimesion : {x_center} , {y_center} , {width} , {height}")
                                     x1 = x_center - int(width/2)
                                     y1 = y_center - int(height/2)

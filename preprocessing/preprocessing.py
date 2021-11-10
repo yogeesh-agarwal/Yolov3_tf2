@@ -23,7 +23,7 @@ class DataGenerator(tf.keras.utils.Sequence):
                         is_norm ,
                         is_augment ,
                         batch_size):
-        self.shuffle = True
+        self.shuffle = False
         self.labels = labels
         self.anchors = anchors
         self.is_norm = is_norm
@@ -38,12 +38,11 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.base_grid_height = base_grid_size
         self.image_names = self.load_pickle(image_names)
         self.train_data = self.load_pickle(instances_file)
-        self.num_train_instances = min(len(self.train_data) , 5000)
+        self.num_train_instances = min(len(self.train_data) , 1)
 
-        sometimes = lambda aug : iaa.Sometimes(0.55, aug)
+        sometimes = lambda aug : iaa.Sometimes(0.30, aug)
         self.augmentor = iaa.Sequential([
             iaa.Fliplr(0.5),
-            iaa.Flipud(0.1),
             sometimes(iaa.Affine(
                 rotate = (-20 , 20),
                 shear = (-13 , 13),
@@ -56,13 +55,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                     iaa.MedianBlur(k = (3 , 11)),
                 ]),
                 iaa.Sharpen(alpha = (0 , 1.0) , lightness = (0.75 , 1.5)),
-                iaa.AdditiveGaussianNoise(loc = 0 , scale = (0.0 , 0.05*255) , per_channel = 0.5),
-                iaa.Add((-10 , 10) , per_channel = 0.5),
-                iaa.Multiply((0.5 , 1.5) , per_channel = 0.5),
-                iaa.LinearContrast((0.5 , 2.0) , per_channel = 0.5),
             ] , random_order = True)
         ] , random_order = True)
-        self.on_epoch_end()
 
     def load_pickle(self , filepath):
         with open(filepath , "rb") as content:
@@ -144,22 +138,28 @@ class DataGenerator(tf.keras.utils.Sequence):
                 center_y = object[1] + object[3] * 0.5
                 center_x = center_x / (float(self.input_width) / curr_grid_width)
                 center_y = center_y / (float(self.input_height) / curr_grid_height)
-                center_w = np.log(object[2] / float(self.anchors[best_anchor_index][0]))
-                center_h = np.log(object[3] / float(self.anchors[best_anchor_index][1]))
+                # encoded_w = np.log(object[2] / float(self.anchors[best_anchor_index][0]))
+                # encoded_h = np.log(object[3] / float(self.anchors[best_anchor_index][1]))
+                encoded_w = object[2]
+                encoded_h = object[3]
                 curr_grid_x = min(int(math.floor(center_x)) , curr_grid_width - 1)
                 curr_grid_y = min(int(math.floor(center_y)) , curr_grid_height - 1)
+
+                # convert center_x , center_y in range og [0-416]
+                center_x *= (self.input_width / curr_grid_width)
+                center_y *= (self.input_height / curr_grid_height)
                 if yolo_id == 0:
-                    encoded_labels_large_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 0:4] = [center_x , center_y , center_w , center_h]
+                    encoded_labels_large_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 0:4] = [center_x , center_y , encoded_w , encoded_h]
                     encoded_labels_large_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 4] = 1
                     encoded_labels_large_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 5] = 1
                     encoded_labels_large_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 6] = 0
                 elif yolo_id == 1:
-                    encoded_labels_medium_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 0:4] = [center_x , center_y , center_w , center_h]
+                    encoded_labels_medium_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 0:4] = [center_x , center_y , encoded_w , encoded_h]
                     encoded_labels_medium_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 4] = 1
                     encoded_labels_medium_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 5] = 1
                     encoded_labels_medium_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 6] = 0
                 elif yolo_id == 2:
-                    encoded_labels_small_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 0:4] = [center_x , center_y , center_w , center_h]
+                    encoded_labels_small_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 0:4] = [center_x , center_y , encoded_w , encoded_h]
                     encoded_labels_small_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 4] = 1
                     encoded_labels_small_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 5] = 1
                     encoded_labels_small_objects[index , curr_grid_y , curr_grid_x , best_anchor_index % self.num_anchors_per_stage , 6] = 0
@@ -169,7 +169,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             detector_indexes.append(window_index)
             encoded_images.append(aug_image)
 
-        return encoded_images , encoded_labels_large_objects , encoded_labels_medium_objects , encoded_labels_small_objects , detector_indexes
+        return encoded_images , encoded_labels_large_objects.astype(np.float32) , encoded_labels_medium_objects.astype(np.float32) , encoded_labels_small_objects.astype(np.float32) , detector_indexes
 
     def on_epoch_end(self):
         if self.shuffle:
@@ -190,7 +190,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         return encoded_images , encoded_labels , detector_indexes
 
     def __len__(self):
-        return math.ceil(self.num_train_instances / self.batch_size)
+        # return math.ceil(self.num_train_instances / self.batch_size)
+        return 50
 
     def __getitem__(self, index):
         encoded_images , encoded_labels , _ = self.load_data(index)

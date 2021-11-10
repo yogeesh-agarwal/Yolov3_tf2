@@ -142,9 +142,8 @@ def cal_giou(gt_xy , gt_wh , pred_xy , pred_wh):
     convex_maxs = tf.maximum(gt_maxs , pred_maxs)
     convex_wh = tf.maximum(convex_maxs - convex_mins , 0.)
     convex_area = convex_wh[... , 0] * convex_wh[... , 1]
-
-    giou = iou - ((convex_area - union_area) / convex_area)
-    return giou
+    giou = iou - ((convex_area - union_area) / (convex_area + 1e-5))
+    return tf.expand_dims(tf.expand_dims(giou , axis = 0) , axis = -1)
 
 
 def sort_anchors(anchors):

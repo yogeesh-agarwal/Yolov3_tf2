@@ -47,7 +47,7 @@ class ConvBlock(tf.keras.layers.Layer):
         if self.darknet:
             if self.conv_weights is None or self.bn_weights is None:
                 raise Exception("weights for this layer " , self.layer_name , " are not available")
-            self.kernel = tf.Variable(self.conv_weights , dtype = tf.float32 , trainable = False)
+            self.kernel = tf.Variable(self.conv_weights , dtype = tf.float32 , trainable = True)
             if self.downsample:
                 self.strides = [1,2,2,1]
                 self.padding = "VALID"

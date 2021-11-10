@@ -122,7 +122,6 @@ def load_class_names(file_name):
     return class_names
 
 def modify_locs_util(localizations , anchors , img_shape = [416, 416] , ground_truth = False):
-    print(localizations.shape)
     locs_shape = tf.shape(localizations)
     batch_size = locs_shape[0]
     grid_shape = locs_shape[1:3]
@@ -144,7 +143,7 @@ def modify_locs_util(localizations , anchors , img_shape = [416, 416] , ground_t
     conf = tf.cast(conf , dtype = tf.float32)
     classes = tf.cast(classes , dtype = tf.float32)
     xy = tf.cast(tf.reshape(xy * strides , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
-    wh = tf.cast(tf.reshape(tf.exp(tf.cast(localizations[... , 2:4] , dtype = tf.float32)) * anchors , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
+    wh = tf.cast(tf.reshape(tf.exp(tf.cast(localizations[... , 2:4] , dtype = tf.float32)) * anchors * strides , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
     conf = tf.cast(tf.reshape(conf , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 1]) , dtype = tf.float32)
     classes = tf.cast(tf.reshape(classes , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
     modified_locs = tf.concat([xy , wh , conf , classes] , axis = -1)

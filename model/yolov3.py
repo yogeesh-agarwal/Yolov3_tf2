@@ -1,7 +1,7 @@
 import pickle
 import numpy as np
 import tensorflow as tf
-from Yolov3_tf2.model.darknet53 import Darknet53
+from Yolov3_tf2.model.darknet53_scratch import Darknet53
 from Yolov3_tf2.model.layers import ConvBlock , InterConvBlocks
 from Yolov3_tf2.metrics.mAP import MeanAveragePrecision , F1_score
 

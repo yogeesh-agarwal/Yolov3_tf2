@@ -45,7 +45,8 @@ def test_postprocess():
 
     for index in range(num_batch):
         batch_images , batch_labels = batch_generator.__getitem__(index)
-        box_objects = post_process(batch_labels , sorted_anchors , images = batch_images , show_image = True , class_file = "../data/classnames.txt")
+        temp_pred = {"large_scale_preds" : batch_labels[0] , "medium_scale_preds" : batch_labels[1] , "small_scale_preds" : batch_labels[2]}
+        box_objects = post_process(temp_pred , sorted_anchors , images = batch_images , show_image = True , class_file = "../data/classnames.txt")
         print(box_objects)
 
 
