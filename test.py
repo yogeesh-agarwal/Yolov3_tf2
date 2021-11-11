@@ -49,7 +49,13 @@ def create_datagen():
 
 def create_model(chkpnt_dir):
     latest_chkpnt = tf.train.latest_checkpoint(chkpnt_dir)
-    model = yolov3.Yolov3(base_grid_size , len(labels) ,grid_scales , darknet53_weights ,darknet53_bn ,sorted_anchors)
+    model = yolov3.Yolov3(sorted_anchors ,
+                           len(labels) ,
+                           grid_scales ,
+                           base_grid_size ,
+                           load_pretrain = False ,
+                           weights_path =  darknet53_weights ,
+                           bn_weights_path = darknet53_bn)
     model.load_weights(latest_chkpnt)
     return model
 
@@ -84,8 +90,8 @@ def predict(aug_image , image , model):
     # print(box_objects)
 
 if __name__ == "__main__":
-    # image = cv2.imread("./data/0_Parade_marchingband_1_849.jpg")
-    image = cv2.imread("./data/0_Parade_Parade_0_904.jpg")
+    image = cv2.imread("./data/0_Parade_marchingband_1_849.jpg")
+    # image = cv2.imread("./data/0_Parade_Parade_0_904.jpg")
     image = cv2.cvtColor(image ,cv2.COLOR_BGR2RGB)
     image = cv2.resize(image , (416,416))
     aug_image = np.array(image).reshape(1,416,416,3) / 255.

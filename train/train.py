@@ -26,14 +26,6 @@ def gen_callbacks(tb_ld , cp_path):
                                                                       min_lr = 1e-6)
     return [tensorboard_callback , checkpoint_callback , reduce_on_plateau_callback]
 
-# def get_epoch_number(latest_chkpnt):
-    # chkpnt_name = latest_chkpnt.split(".ckpt")[0]
-    # epoch_number = chkpnt_name.split("-")[1]
-    # return int(epoch_number)
-
-def get_epoch_number():
-    return 0
-
 def train(input_size,
           base_grid_size,
           grid_scales,
@@ -52,8 +44,9 @@ def train(input_size,
           labels,
           is_norm,
           is_augment,
-          darknet53_weights,
-          darknet53_bn):
+          darknet53_weights = None ,
+          darknet53_bn = None ,
+          load_pretrain = False):
 
     train_summary_writer = tf.summary.create_file_writer(logs_dir)
     tf.summary.experimental.set_step(0)
@@ -83,18 +76,30 @@ def train(input_size,
                                          is_augment,
                                          batch_size)
 
-    face_detector = Yolov3(base_grid_size , len(labels) ,grid_scales , darknet53_weights ,darknet53_bn ,sorted_anchors)
+    #define yolov3 model ,
+    # make sure to provide weight and bn_weights path if load_pretrain is True else darknet53 will be initialzed from scratch.
+    face_detector = Yolov3(sorted_anchors ,
+                           len(labels) ,
+                           grid_scales ,
+                           base_grid_size ,
+                           load_pretrain = load_pretrain ,
+                           weights_path =  darknet53_weights ,
+                           bn_weights_path = darknet53_bn)
+
+    # define 3 losses.
+    # large_obj_loss : [13,13]
+    # medium_obj_loss : [26,26]
+    # small_obj_loss : [52,52]
     large_obj_loss = Yolov3Loss(base_grid_size ,grid_scales[0] , len(labels) ,sorted_anchors[:3], summary_writer = train_summary_writer , name = "large_obj_loss")
     medium_obj_loss = Yolov3Loss(base_grid_size ,grid_scales[1] , len(labels) ,sorted_anchors[3:6], summary_writer = train_summary_writer , name = "medium_obj_loss")
     small_obj_loss = Yolov3Loss(base_grid_size ,grid_scales[2] , len(labels) ,sorted_anchors[6:], summary_writer = train_summary_writer , name = "small_obj_loss")
     epoch_number = 0
     if not os.listdir(save_dir):
-        print("No trained model found m starting from scratch")
+        print("No trained model found, training from scratch")
     else:
         latest_chkpnt = tf.train.latest_checkpoint(save_dir)
         face_detector.load_weights(latest_chkpnt)
-        epoch_number = get_epoch_number()
-        print("Resuming training with partially trained model from epoch : " , epoch_number)
+        print("Partial trained model found , loading weights.")
 
     face_detector.compile(optimizer = tf.keras.optimizers.Adam(learning_rate = init_lr) ,
                           loss = {"large_scale_preds" : large_obj_loss ,
@@ -104,7 +109,7 @@ def train(input_size,
     face_detector.fit(train_data_generator ,
                       epochs = num_epochs,
                       use_multiprocessing = True,
-                      initial_epoch = epoch_number,
+                      initial_epoch = 0,
                       callbacks = callbacks)
 
 def main():
@@ -157,9 +162,7 @@ def main():
           val_image_names,
           labels,
           is_norm,
-          is_augment,
-          darknet53_weights,
-          darknet53_bn)
+          is_augment)
 
 if __name__ == '__main__':
     main()

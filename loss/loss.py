@@ -44,6 +44,7 @@ class Yolov3Loss(tf.keras.losses.Loss):
 
     def modify_predictions(self):
         # shape of predictions are : [batch_size , grid_dim , grid_dim , num_anchors , 4 + 1 + num_classes]
+        # we take exp(w_h) to adjust the contraction or expansion of w_h wrt to its anchor w_h. since exp(-w) ~ [0-1] , w decreases wrt a_w (when w < 0) and increses when w>0
         cell_grid = utils.gen_cell_grid(self.grid_dim , self.grid_dim , self.num_anchors)
         pred_xy = (tf.sigmoid(self.predictions[... , 0:2]) + cell_grid) * self.ratio
         pred_wh = self.ratio * tf.exp(self.predictions[... , 2:4]) * self.rescaled_anchors
@@ -85,15 +86,21 @@ class Yolov3Loss(tf.keras.losses.Loss):
     def localization_loss(self, coord_mask , gt , preds , cell_grid , giou = False):
         gt_xy , gt_wh = gt
         pred_xy , pred_wh = preds
+
+        # currently both ground truth and predictions are in image_size range i.e [0-416]
+        # bring ground truth and predictions in cell range i.e [0-1]
+        # x-y coord cant just be normalized by dividing by image size , we have to reverse calculate x-y.
+        # i.e, decode x-y the reverse way you encoded.
+        # one can just sigmoid the predictions , (gt decoding remains same). but this makes more sense to me.
         gt_xy = gt_xy / self.ratio - cell_grid
         pred_xy = pred_xy / self.ratio - cell_grid
 
+        # since we take exp in loss , targets needs to be inversed i.e. log(w/anc_w)
+        # and since we are mapping raw predictions , we need to convert exp(w)*anc to just raw w. (one can also just use raw predictions from model.)
         gt_wh = gt_wh / self.anchors
         pred_wh = pred_wh / self.anchors
-        gt_wh = tf.where(condition = tf.equal(gt_wh , 0) , x = tf.ones_like(gt_wh) , y = gt_wh)
-        pred_wh = tf.where(condition = tf.equal(pred_wh , 0) , x = tf.ones_like(pred_wh) , y = pred_wh)
-        gt_wh = tf.math.log(tf.clip_by_value(gt_wh , 1e-9 , 1e9))
-        pred_wh = tf.math.log(tf.clip_by_value(pred_wh , 1e-9 , 1e9))
+        gt_wh = tf.math.log(gt_wh + 1e-7)
+        pred_wh = tf.math.log(pred_wh + 1e-7)
 
         # calculate generalized iou loss
         if giou:

@@ -1,17 +1,19 @@
 import pickle
 import numpy as np
 import tensorflow as tf
-from Yolov3_tf2.model.darknet53_scratch import Darknet53
+from Yolov3_tf2.model.darknet53 import Darknet53
 from Yolov3_tf2.model.layers import ConvBlock , InterConvBlocks
 from Yolov3_tf2.metrics.mAP import MeanAveragePrecision , F1_score
 
 class Yolov3(tf.keras.Model):
-    def __init__(self , base_grid_size ,
+    def __init__(self ,
+                 anchors ,
                  num_classes ,
                  grid_scales ,
-                 weights_path ,
-                 bn_weights_path,
-                 anchors):
+                 base_grid_size ,
+                 weights_path = None ,
+                 load_pretrain = False,
+                 bn_weights_path = None):
         super(Yolov3, self).__init__(name = "Yolov3")
         self.base_grid_height = base_grid_size
         self.bn_weights_path = bn_weights_path
@@ -24,7 +26,10 @@ class Yolov3(tf.keras.Model):
         self.conv_index = 52
         self.icb_index = 0
 
-        self.darknet_classifier = Darknet53(self.weights_path , self.bn_weights_path)
+        self.darknet_classifier = Darknet53(load_pretrain ,
+                                            darknet53_bn_file = bn_weights_path ,
+                                            darknet53_weights_file = weights_path)
+
         self.icb1 = InterConvBlocks(self.conv_index,
                                     [[1,512] , [3,1024] , [1,512] , [3,1024] , [1,512] , [3,1024]],
                                     self.icb_index)
