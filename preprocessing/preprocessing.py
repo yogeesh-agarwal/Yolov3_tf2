@@ -37,8 +37,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.base_grid_width = base_grid_size
         self.base_grid_height = base_grid_size
         self.image_names = self.load_pickle(image_names)
-        self.train_data = self.load_pickle(instances_file)
-        self.num_train_instances = min(len(self.train_data) , 1)
+        self._data = self.load_pickle(instances_file)
+        self.num_instances = min(len(self._data) , 1)
 
         sometimes = lambda aug : iaa.Sometimes(0.30, aug)
         self.augmentor = iaa.Sequential([
@@ -90,9 +90,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             image = cv2.cvtColor(cv2.imread(image_path) , cv2.COLOR_BGR2RGB)
             image = cv2.resize(image , (self.input_width , self.input_height))
 
-            if self.image_names[instances_index] not in self.train_data:
+            if self.image_names[instances_index] not in self._data:
                 raise Exception("image_name not found")
-            label = self.train_data[self.image_names[instances_index]]
+            label = self._data[self.image_names[instances_index]]
 
             resized_label = []
             for index in range(len(label)):
@@ -178,8 +178,8 @@ class DataGenerator(tf.keras.utils.Sequence):
     def load_data(self  , index):
         starting_index = index * self.batch_size
         ending_index = starting_index + self.batch_size
-        if ending_index > len(self.train_data):
-            ending_index = len(self.train_data)
+        if ending_index > len(self._data):
+            ending_index = len(self._data)
             starting_index = ending_index - self.batch_size
 
         encoded_images , encoded_labels_large_objects , encoded_labels_medium_objects , encoded_labels_small_objects , detector_indexes = self.encode_data(starting_index , ending_index)
@@ -190,8 +190,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         return encoded_images , encoded_labels , detector_indexes
 
     def __len__(self):
-        # return math.ceil(self.num_train_instances / self.batch_size)
-        return 50
+        # return math.ceil(self.num_instances / self.batch_size)
+        return 100
 
     def __getitem__(self, index):
         encoded_images , encoded_labels , _ = self.load_data(index)

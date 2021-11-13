@@ -108,45 +108,50 @@ class Yolov3(tf.keras.Model):
         all_predictions = {"large_scale_preds" : large_scale_preds , "medium_scale_preds" : medium_scale_preds , "small_scale_preds" : small_scale_preds}
         return all_predictions
 
+    def reset_metrics(self):
+        self.train_loss_tracker.reset_state()
+        self.val_loss_tracker.reset_state()
+        self.val_mAP.reset_state()
+
     def build_graph(self):
         x = tf.keras.Input(shape = (416,416,3))
         return tf.keras.Model(inputs = [x] , outputs = self.call(x))
 
-    def train_step(self , data):
-        # override this fucntion to implement custom logic for one training step (i.e. per batch)
-        images , ground_truths = data
-        large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
+    # def train_step(self , data):
+    #     # override this fucntion to implement custom logic for one training step (i.e. per batch)
+    #     images , ground_truths = data
+    #     large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
+    #
+    #     with tf.GradientTape() as tape:
+    #         # run forward pass under gradient_tape to log the operations implemented , will be used for back propagation.
+    #         all_predictions = self(images , training = True)
+    #         loss = self.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
+    #                                    all_predictions ,
+    #                                    regularization_losses = self.losses)
+    #
+    #     # apply gradients on trainable vars.
+    #     trainable_variables = self.trainable_variables
+    #     gradients = tape.gradient(loss , trainable_variables)
+    #     self.optimizer.apply_gradients(zip(gradients , trainable_variables))
+    #
+    #     # compute metrics
+    #     self.train_loss_tracker.update_state(loss)
+    #     return {"train_loss" : self.train_loss_tracker.result()}
 
-        with tf.GradientTape() as tape:
-            # run forward pass under gradient_tape to log the operations implemented , will be used for back propagation.
-            all_predictions = self(images , training = True)
-            loss = self.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
-                                       all_predictions ,
-                                       regularization_losses = self.losses)
-
-        # apply gradients on trainable vars.
-        trainable_variables = self.trainable_variables
-        gradients = tape.gradient(loss , trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients , trainable_variables))
-
-        # compute metrics
-        self.train_loss_tracker.update_state(loss)
-        return {"train_loss" : self.train_loss_tracker.result()}
-
-    def test_step(self , data):
-        # override this function to implement custom logic for one test step (i.e. per batch)
-        images , ground_truths = data
-        large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
-        all_predictions = self(images , training = False)
-        loss = self.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
-                                  all_predictions ,
-                                  regularization_losses = self.losses)
-        predictions = []
-        for key in all_predictions:
-            predictions.append(all_predictions[key])
-        mAP = self.val_mAP.update_state(ground_truths , predictions)
-        self.val_loss_tracker.update_state(loss)
-        return {"loss" : self.val_loss_tracker.result() , "mAP" : self.val_mAP.result()}
+    # def test_step(self , data):
+    #     # override this function to implement custom logic for one test step (i.e. per batch)
+    #     images , ground_truths = data
+    #     large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
+    #     all_predictions = self(images , training = False)
+    #     loss = self.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
+    #                               all_predictions ,
+    #                               regularization_losses = self.losses)
+    #     predictions = []
+    #     for key in all_predictions:
+    #         predictions.append(all_predictions[key])
+    #     mAP = self.val_mAP.update_state(ground_truths , predictions)
+    #     self.val_loss_tracker.update_state(loss)
+    #     return {"loss" : self.val_loss_tracker.result() , "mAP" : self.val_mAP.result()}
 
 def test_model():
     yolo = Yolov3(13 , 2 , [1,2,4] ,

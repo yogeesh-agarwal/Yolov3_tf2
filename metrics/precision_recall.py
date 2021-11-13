@@ -53,7 +53,7 @@ class RecallOD(tf.keras.metrics.Metric):
         unit_metrics_state = self.unit_metrics.result()
         tp = unit_metrics_state["true_pos"].numpy()
         num_gt_objects = len(gt_box_objects)
-        recall = tp / (num_gt_objects)
+        recall = tp / (num_gt_objects + self.epsilon)
         self.recall.assign(recall)
 
     # return recall array for AP calculation
