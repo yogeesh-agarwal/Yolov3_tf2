@@ -9,253 +9,233 @@ from Yolov3_tf2 import utils as comman_utils
 import tensorflow.keras.callbacks as callbacks_module
 from Yolov3_tf2.preprocessing.preprocessing import DataGenerator
 
-def gen_callbacks(tb_ld , cp_path):
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir = tb_ld,
-                                                          histogram_freq = 1,
-                                                          update_freq = "batch")
-    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath = cp_path,
-                                                             verbose = 1,
-                                                             mode = "min",
-                                                             save_best_only = True,
-                                                             monitor = "train_loss",
-                                                             save_weights_only = True)
+class Train():
+    def __init__(self):
+        self.verbose = 1
+        self.is_norm = True
+        self.batch_size = 1
+        self.init_lr = 0.0001
+        self.input_size = 416
+        self.num_epochs = 1000
+        self.is_augment = False
+        self.base_grid_size = 13
+        self.grid_scales = [1,2,4]
+        self.load_pretrain = False
+        self.custom_training = False
+        self.logs_dir = "../logs/"
+        self.save_dir = "../saved_models/"
+        self.labels = ["Face" , "Non_Face"]
+        self.train_file = "../data/wider_training_data.pickle"
+        self.val_file = "../data/wider_validation_data.pickle"
+        self.darknet53_bn = None  # or "../data/bn_weights.pickle"
+        self.train_image_names = "../data/wider_images_names.pickle"
+        self.val_image_names = "../data/wider_val_images_names.pickle"
+        self.darknet53_weights = None # or "../data/conv_weights.pickle"
+        self.val_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_val/WIDER_val/images/"
+        self.train_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_train/WIDER_train/images/"
 
-    reduce_on_plateau_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor = "train_loss",
-                                                                      factor = 0.5,
-                                                                      patience = 50,
-                                                                      verbose = 1,
-                                                                      mode = "min",
-                                                                      min_lr = 1e-6)
-    return [tensorboard_callback , checkpoint_callback , reduce_on_plateau_callback]
+        self.anchors = np.array([[0.17028831 , 0.35888521],
+                            [0.05563053 , 0.09101727],
+                            [0.11255733 , 0.21961425],
+                            [0.0347448  , 0.06395953],
+                            [0.32428802 , 0.42267646],
+                            [0.47664651 , 0.65827237],
+                            [0.21481797 , 0.20969635],
+                            [0.07297461 , 0.14739788],
+                            [0.11702667 , 0.11145465]] , dtype = np.float32).reshape(9,2) * self.input_size
 
-@tf.function
-def train_step(model , data):
-    # override this fucntion to implement custom logic for one training step (i.e. per batch)
-    images , ground_truths = data
-    large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
+        self.sorted_anchors = comman_utils.sort_anchors(self.anchors)
 
-    with tf.GradientTape() as tape:
-        # run forward pass under gradient_tape to log the operations implemented , will be used for back propagation.
-        all_predictions = model(images , training = True)
-        loss = model.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
-                                   all_predictions ,
-                                   regularization_losses = model.losses)
+        self.train_summary_writer = tf.summary.create_file_writer(self.logs_dir)
+        tf.summary.experimental.set_step(0)
 
-    # apply gradients on trainable vars.
-    trainable_variables = model.trainable_variables
-    gradients = tape.gradient(loss , trainable_variables)
-    model.optimizer.apply_gradients(zip(gradients , trainable_variables))
+        # define training data generator
+        self.train_data_generator = DataGenerator(self.input_size ,
+                                             self.base_grid_size ,
+                                             self.grid_scales ,
+                                             self.sorted_anchors ,
+                                             self.train_data_path ,
+                                             self.train_file ,
+                                             self.train_image_names ,
+                                             self.labels ,
+                                             self.is_norm ,
+                                             self.is_augment,
+                                             self.batch_size)
+        self.num_batches = len(self.train_data_generator)
 
-    # compute metrics
-    model.train_loss_tracker.update_state(loss)
-    return {"train_loss" : model.train_loss_tracker.result()}
+        #define validation data generator
+        self.val_data_generator = DataGenerator(self.input_size ,
+                                             self.base_grid_size ,
+                                             self.grid_scales ,
+                                             self.sorted_anchors ,
+                                             self.val_data_path ,
+                                             self.val_file ,
+                                             self.val_image_names ,
+                                             self.labels ,
+                                             self.is_norm ,
+                                             self.is_augment,
+                                             self.batch_size)
 
-@tf.function
-def forward_step(model , data):
-    images , ground_truths = data
-    large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
-    all_predictions = model(images , training = False)
-    loss = model.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
-                              all_predictions ,
-                              regularization_losses = model.losses)
+        #define yolov3 model ,
+        # make sure to provide weight and bn_weights path if load_pretrain is True else darknet53 will be initialzed from scratch.
+        self.face_detector = Yolov3(self.sorted_anchors ,
+                               len(self.labels) ,
+                               self.grid_scales ,
+                               self.base_grid_size ,
+                               load_pretrain = self.load_pretrain ,
+                               weights_path =  self.darknet53_weights ,
+                               bn_weights_path = self.darknet53_bn)
 
-    return all_predictions , loss
+    def define_losses(self):
+        # define 3 losses.
+        # large_obj_loss : [13,13]
+        # medium_obj_loss : [26,26]
+        # small_obj_loss : [52,52]
+        self.large_obj_loss = Yolov3Loss(self.base_grid_size , self.grid_scales[0] , len(self.labels) , self.sorted_anchors[:3], summary_writer = self.train_summary_writer , name = "large_obj_loss")
+        self.medium_obj_loss = Yolov3Loss(self.base_grid_size , self.grid_scales[1] , len(self.labels) , self.sorted_anchors[3:6], summary_writer = self.train_summary_writer , name = "medium_obj_loss")
+        self.small_obj_loss = Yolov3Loss(self.base_grid_size , self.grid_scales[2] , len(self.labels) , self.sorted_anchors[6:], summary_writer = self.train_summary_writer , name = "small_obj_loss")
 
-def test_step(model , data):
-    # override this function to implement custom logic for one test step (i.e. per batch)
-    images , ground_truths = data
-    all_predictions , loss = forward_step(model , data)
-    model.val_mAP.update_state(ground_truths , all_predictions)
-    model.val_loss_tracker.update_state(loss)
-    return {"loss" : model.val_loss_tracker.result() , "mAP" : model.val_mAP.result()}
+    def gen_callbacks(self , tb_ld , cp_path):
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir = tb_ld,
+                                                              histogram_freq = 1,
+                                                              update_freq = "batch")
+        checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(filepath = cp_path,
+                                                                 verbose = 1,
+                                                                 mode = "min",
+                                                                 save_best_only = True,
+                                                                 monitor = "train_loss",
+                                                                 save_weights_only = True)
 
-def train(input_size,
-          base_grid_size,
-          grid_scales,
-          sorted_anchors,
-          batch_size,
-          num_epochs,
-          init_lr,
-          logs_dir,
-          save_dir,
-          train_data_path,
-          val_data_path,
-          train_file,
-          val_file,
-          train_image_names,
-          val_image_names,
-          labels,
-          is_norm,
-          is_augment,
-          darknet53_weights = None ,
-          darknet53_bn = None ,
-          load_pretrain = False):
+        reduce_on_plateau_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor = "train_loss",
+                                                                          factor = 0.5,
+                                                                          patience = 50,
+                                                                          verbose = 1,
+                                                                          mode = "min",
+                                                                          min_lr = 1e-6)
+        return [tensorboard_callback , checkpoint_callback , reduce_on_plateau_callback]
 
-    train_summary_writer = tf.summary.create_file_writer(logs_dir)
-    tf.summary.experimental.set_step(0)
-    callbacks = gen_callbacks(logs_dir+"/loss" , save_dir+"yolov3.ckpt")
+    def load_pretrained_detector(self):
+        if not os.listdir(self.save_dir):
+            print("No trained model found, training from scratch")
+        else:
+            latest_chkpnt = tf.train.latest_checkpoint(self.save_dir)
+            self.face_detector.load_weights(latest_chkpnt)
+            print("Partial trained model found , loading weights.")
 
-    train_data_generator = DataGenerator(input_size ,
-                                         base_grid_size ,
-                                         grid_scales ,
-                                         sorted_anchors ,
-                                         train_data_path ,
-                                         train_file ,
-                                         train_image_names ,
-                                         labels ,
-                                         is_norm ,
-                                         is_augment,
-                                         batch_size)
+    def configure_callbacks(self , callbacks):
+        if not isinstance(callbacks , callbacks_module.CallbackList):
+            callbacks = callbacks_module.CallbackList(callbacks ,
+                                                      add_history = True,
+                                                      add_progbar = False ,
+                                                      model = self.face_detector ,
+                                                      verbose = self.verbose ,
+                                                      epochs = self.num_epochs ,
+                                                      steps = len(self.train_data_generator))
+        return callbacks
+
+    @tf.function
+    def forward_step(self , data , training = True):
+        images , ground_truths = data
+        large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
+        all_predictions = self.face_detector(images , training = training)
+        loss = self.face_detector.compiled_loss([large_obj_gt , medium_obj_gt , small_obj_gt],
+                                  all_predictions ,
+                                  regularization_losses = self.face_detector.losses)
+
+        return all_predictions , loss
 
 
-    val_data_generator = DataGenerator(input_size ,
-                                         base_grid_size ,
-                                         grid_scales ,
-                                         sorted_anchors ,
-                                         val_data_path ,
-                                         val_file ,
-                                         val_image_names ,
-                                         labels ,
-                                         is_norm ,
-                                         is_augment,
-                                         batch_size)
+    @tf.function
+    def train_step(self  , data):
+        # override this fucntion to implement custom logic for one training step (i.e. per batch)
+        images , ground_truths = data
+        large_obj_gt , medium_obj_gt , small_obj_gt = ground_truths
 
-    #define yolov3 model ,
-    # make sure to provide weight and bn_weights path if load_pretrain is True else darknet53 will be initialzed from scratch.
-    face_detector = Yolov3(sorted_anchors ,
-                           len(labels) ,
-                           grid_scales ,
-                           base_grid_size ,
-                           load_pretrain = load_pretrain ,
-                           weights_path =  darknet53_weights ,
-                           bn_weights_path = darknet53_bn)
+        with tf.GradientTape() as tape:
+            # run forward pass under gradient_tape to log the operations implemented , will be used for back propagation.
+            all_predictions , loss = self.forward_step(data)
 
-    # define 3 losses.
-    # large_obj_loss : [13,13]
-    # medium_obj_loss : [26,26]
-    # small_obj_loss : [52,52]
-    verbose = 1
-    num_batches = len(train_data_generator)
-    large_obj_loss = Yolov3Loss(base_grid_size ,grid_scales[0] , len(labels) ,sorted_anchors[:3], summary_writer = train_summary_writer , name = "large_obj_loss")
-    medium_obj_loss = Yolov3Loss(base_grid_size ,grid_scales[1] , len(labels) ,sorted_anchors[3:6], summary_writer = train_summary_writer , name = "medium_obj_loss")
-    small_obj_loss = Yolov3Loss(base_grid_size ,grid_scales[2] , len(labels) ,sorted_anchors[6:], summary_writer = train_summary_writer , name = "small_obj_loss")
-    if not os.listdir(save_dir):
-        print("No trained model found, training from scratch")
-    else:
-        latest_chkpnt = tf.train.latest_checkpoint(save_dir)
-        face_detector.load_weights(latest_chkpnt)
-        print("Partial trained model found , loading weights.")
+        # apply gradients on trainable vars.
+        trainable_variables = self.face_detector.trainable_variables
+        gradients = tape.gradient(loss , trainable_variables)
+        self.face_detector.optimizer.apply_gradients(zip(gradients , trainable_variables))
 
-    #configure callback container.
-    if not isinstance(callbacks , callbacks_module.CallbackList):
-        callbacks = callbacks_module.CallbackList(callbacks ,
-                                                  add_history = True,
-                                                  add_progbar = False ,
-                                                  model = face_detector ,
-                                                  verbose = verbose ,
-                                                  epochs = num_epochs ,
-                                                  steps = len(train_data_generator))
+        # compute metrics
+        self.face_detector.train_loss_tracker.update_state(loss)
+        return {"train_loss" : self.face_detector.train_loss_tracker.result()}
 
-    # compile the model
-    face_detector.compile(optimizer = tf.keras.optimizers.Adam(learning_rate = init_lr) ,
-                          loss = {"large_scale_preds" : large_obj_loss ,
-                                  "medium_scale_preds" : medium_obj_loss ,
-                                  "small_scale_preds" : small_obj_loss})
+    def test_step(self , data):
+        # override this function to implement custom logic for one test step (i.e. per batch)
+        images , ground_truths = data
+        all_predictions , loss = forward_step(data , training = False)
+        self.face_detector.val_mAP.update_state(ground_truths , all_predictions)
+        self.face_detector.val_loss_tracker.update_state(loss)
+        return {"loss" : self.face_detector.val_loss_tracker.result() , "mAP" : self.face_detector.val_mAP.result()}
 
-    # face_detector.fit(train_data_generator ,
-    #                   validation_data = val_data_generator ,
-    #                   epochs = num_epochs,
-    #                   use_multiprocessing = True,
-    #                   initial_epoch = 0,
-    #                   callbacks = callbacks)
+    def custom_training_loop(self , callbacks):
+        callbacks.on_train_begin()
+        metric_names = ["train_loss" , "val_loss" , "val_mAP"]
+        for epoch in range(self.num_epochs):
+            train_log = None
+            self.face_detector.reset_metrics()
+            callbacks.on_epoch_begin(epoch)
+            print("Epoch {}/{}".format(epoch , self.num_epochs))
+            prog_bar = tf.keras.utils.Progbar(self.num_batches , stateful_metrics = metric_names)
+            step = 0
+            while step < self.num_batches:
+                callbacks.on_train_batch_begin(step)
+                image_data_this_batch , label_data_this_batch = self.train_data_generator.__getitem__(step)
+                train_log = train_step([image_data_this_batch , label_data_this_batch])
+                if step < self.num_batches-1:
+                    prog_bar.update(step+1 , values = [("train_loss" , train_log["train_loss"])])
+                else:
+                    updated_values = [("train_loss" , train_log["train_loss"])]
+                callbacks.on_train_batch_end(step+1 , train_log)
+                step += 1
 
-    callbacks.on_train_begin()
-    metric_names = ["train_loss" , "val_loss" , "val_mAP"]
-    for epoch in range(num_epochs):
-        train_log = None
-        face_detector.reset_metrics()
-        callbacks.on_epoch_begin(epoch)
-        print("Epoch {}/{}".format(epoch , num_epochs))
-        prog_bar = tf.keras.utils.Progbar(num_batches , stateful_metrics = metric_names)
-        step = 0
-        while step < num_batches:
-            callbacks.on_train_batch_begin(step)
-            image_data_this_batch , label_data_this_batch = train_data_generator.__getitem__(step)
-            train_log = train_step(face_detector , [image_data_this_batch , label_data_this_batch])
-            if step < num_batches-1:
-                prog_bar.update(step+1 , values = [("train_loss" , train_log["train_loss"])])
-            else:
-                updated_values = [("train_loss" , train_log["train_loss"])]
-            callbacks.on_train_batch_end(step+1 , train_log)
-            step += 1
+            for val_batch_idx in range(len(self.val_data_generator)):
+                val_image_data_this_batch , val_label_data_this_batch = self.val_data_generator.__getitem__(val_batch_idx)
+                val_log = test_step([val_image_data_this_batch , val_label_data_this_batch])
 
-        for val_batch_idx in range(len(val_data_generator)):
-            val_image_data_this_batch , val_label_data_this_batch = val_data_generator.__getitem__(val_batch_idx)
-            val_log = test_step(face_detector , [val_image_data_this_batch , val_label_data_this_batch])
+            updated_values += [("val_loss" , val_log["loss"]) ,
+                               ("val_mAP" , val_log["mAP"])]
+            prog_bar.update(step , values = updated_values)
+            callbacks.on_epoch_end(epoch , train_log)
 
-        updated_values += [("val_loss" , val_log["loss"]) ,
-                           ("val_mAP" , val_log["mAP"])]
-        prog_bar.update(step , values = updated_values)
-        callbacks.on_epoch_end(epoch , train_log)
 
-    print("Training Completed")
+    def train(self):
+        callbacks = self.gen_callbacks(self.logs_dir+"/loss" , self.save_dir+"yolov3.ckpt")
+        self.load_pretrained_detector()
+        self.define_losses()
+        # compile the model
+        self.face_detector.compile(optimizer = tf.keras.optimizers.Adam(learning_rate = self.init_lr) ,
+                              loss = {"large_scale_preds" : self.large_obj_loss ,
+                                      "medium_scale_preds" : self.medium_obj_loss ,
+                                      "small_scale_preds" : self.small_obj_loss})
 
-def main():
-    input_size = 416
-    base_grid_size = 13
-    grid_scales = [1,2,4]
-    batch_size = 1
-    num_epochs = 1000
-    init_lr = 0.0001
-    logs_dir = "../logs/"
-    save_dir = "../saved_models/"
-    train_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_train/WIDER_train/images/"
-    train_file = "../data/wider_training_data.pickle"
-    train_image_names = "../data/wider_images_names.pickle"
-    # val_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_val/WIDER_val/images/"
-    # val_file = "../data/wider_validation_data.pickle"
-    # val_image_names = "../data/wider_val_images_names.pickle"
-    
-    val_data_path = train_data_path
-    val_file = train_file
-    val_image_names = train_image_names
+        # invoke custom training loop if custom_training flag is True:
+        # custom training is configured to give model.fit kind off output display but additionally it also gives flexibility of running validation (mAP) .
+        # which is not possible for now in graph mode.
+        # so training happens in Graph mode , validation happens in Eager mode.
+        if self.custom_training:
+            #configure callback container.
+            callbacks = self.configure_callbacks(callbacks)
+            # call the training loop
+            self.custom_training_loop(callbacks)
 
-    labels = ["Face" , "Non_Face"]
-    is_norm = True
-    is_augment = False
-    darknet53_weights = "../data/conv_weights.pickle"
-    darknet53_bn = "../data/bn_weights.pickle"
+        else:
+            # call model.fit
+            # validation is not supported in fit method.
+            self.face_detector.fit(self.train_data_generator ,
+                              epochs = self.num_epochs,
+                              use_multiprocessing = True,
+                              initial_epoch = 0,
+                              callbacks = callbacks)
+        print("Training Completed")
 
-    anchors = np.array([[0.17028831 , 0.35888521],
-                        [0.05563053 , 0.09101727],
-                        [0.11255733 , 0.21961425],
-                        [0.0347448  , 0.06395953],
-                        [0.32428802 , 0.42267646],
-                        [0.47664651 , 0.65827237],
-                        [0.21481797 , 0.20969635],
-                        [0.07297461 , 0.14739788],
-                        [0.11702667 , 0.11145465]] , dtype = np.float32).reshape(9,2) * input_size
-
-    sorted_anchors = comman_utils.sort_anchors(anchors)
-
-    train(input_size,
-          base_grid_size,
-          grid_scales,
-          sorted_anchors,
-          batch_size,
-          num_epochs,
-          init_lr,
-          logs_dir,
-          save_dir,
-          train_data_path,
-          val_data_path,
-          train_file,
-          val_file,
-          train_image_names,
-          val_image_names,
-          labels,
-          is_norm,
-          is_augment)
+def train_model():
+    train_obj = Train()
+    train_obj.train()
 
 if __name__ == '__main__':
-    main()
+    train_model()

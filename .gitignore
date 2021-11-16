@@ -3,3 +3,5 @@
 /data/*.npy
 /*/__pycache__/
 /saved_models/*
+/data/losses/*
+/logs/*

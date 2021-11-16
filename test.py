@@ -90,8 +90,8 @@ def predict(aug_image , image , model):
     # print(box_objects)
 
 if __name__ == "__main__":
-    image = cv2.imread("./data/0_Parade_marchingband_1_849.jpg")
-    # image = cv2.imread("./data/0_Parade_Parade_0_904.jpg")
+    # image = cv2.imread("./data/0_Parade_marchingband_1_849.jpg")
+    image = cv2.imread("./data/0_Parade_Parade_0_904.jpg")
     image = cv2.cvtColor(image ,cv2.COLOR_BGR2RGB)
     image = cv2.resize(image , (416,416))
     aug_image = np.array(image).reshape(1,416,416,3) / 255.
