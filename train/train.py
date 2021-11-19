@@ -13,11 +13,11 @@ class Train():
     def __init__(self):
         self.verbose = 1
         self.is_norm = True
-        self.batch_size = 1
+        self.batch_size = 4
         self.init_lr = 0.0001
         self.input_size = 416
         self.num_epochs = 1000
-        self.is_augment = False
+        self.is_augment = True
         self.base_grid_size = 13
         self.grid_scales = [1,2,4]
         self.load_pretrain = False
@@ -27,10 +27,10 @@ class Train():
         self.labels = ["Face" , "Non_Face"]
         self.train_file = "../data/wider_training_data.pickle"
         self.val_file = "../data/wider_validation_data.pickle"
-        self.darknet53_bn = None  # or "../data/bn_weights.pickle"
+        self.darknet53_bn = None  # or "../data/bn_weights.pickle" (for pretrained darknet classifier)
         self.train_image_names = "../data/wider_images_names.pickle"
         self.val_image_names = "../data/wider_val_images_names.pickle"
-        self.darknet53_weights = None # or "../data/conv_weights.pickle"
+        self.darknet53_weights = None # or "../data/conv_weights.pickle" (for pretrained darknet classifier)
         self.val_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_val/WIDER_val/images/"
         self.train_data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_train/WIDER_train/images/"
 
@@ -108,7 +108,7 @@ class Train():
 
         reduce_on_plateau_callback = tf.keras.callbacks.ReduceLROnPlateau(monitor = "train_loss",
                                                                           factor = 0.5,
-                                                                          patience = 50,
+                                                                          patience = 20,
                                                                           verbose = 1,
                                                                           mode = "min",
                                                                           min_lr = 1e-6)

@@ -165,8 +165,8 @@ def post_process(predictions,
             gt_final_boxes = [gt_final_boxes[index] for index in keep_index]
             gt_final_probs = [gt_final_probs[index] for index in keep_index]
             gt_final_class = [gt_final_class[index] for index in keep_index]
-            gt_box_objects.append(gen_box_objects(gt_final_boxes, gt_final_probs , gt_final_class))
-    box_objects = [np.array(pred_box_objects)]
+            gt_box_objects.append(gen_box_objects(gt_final_boxes, gt_final_probs , gt_final_class , gt = True))
+    box_objects = [np.array(pred_box_objects , dtype = object)]
     if ground_truth is not None:
-        box_objects.append(np.array(gt_box_objects))
+        box_objects.append(np.array(gt_box_objects , dtype = object))
     return  box_objects

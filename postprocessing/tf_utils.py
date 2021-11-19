@@ -131,19 +131,22 @@ def modify_locs_util(localizations , anchors , img_shape = [416, 416] , ground_t
     cell_grid = gen_cell_grid(grid_shape[0] , grid_shape[1] , batch_size)
 
     if not ground_truth:
-        xy = sigmoid(localizations[... , 0:2]) + cell_grid
         conf = sigmoid(localizations[... , 4])
         classes = softmax(localizations[... , 5:])
+        xy = (sigmoid(localizations[... , 0:2]) + cell_grid) * strides
+        wh = tf.exp(tf.cast(localizations[... , 2:4] , dtype = tf.float32)) * anchors * strides
+
     else:
         xy = localizations[... , 0:2]
+        wh = localizations[... , 2:4]
         conf = localizations[... , 4]
         classes = localizations[... , 5:]
 
     xy = tf.cast(xy , dtype = tf.float32)
     conf = tf.cast(conf , dtype = tf.float32)
     classes = tf.cast(classes , dtype = tf.float32)
-    xy = tf.cast(tf.reshape(xy * strides , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
-    wh = tf.cast(tf.reshape(tf.exp(tf.cast(localizations[... , 2:4] , dtype = tf.float32)) * anchors * strides , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
+    xy = tf.cast(tf.reshape(xy , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
+    wh = tf.cast(tf.reshape(wh , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
     conf = tf.cast(tf.reshape(conf , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 1]) , dtype = tf.float32)
     classes = tf.cast(tf.reshape(classes , [-1 , grid_shape[0]*grid_shape[1]*num_anchors , 2]) , dtype = tf.float32)
     modified_locs = tf.concat([xy , wh , conf , classes] , axis = -1)

@@ -13,6 +13,7 @@ class BoundingBox:
             # if center coord , convert to top_left coord system.
             self.x = self.x - self.w*0.5
             self.y = self.y - self.h*0.5
+        self.ground_truth = gt
         self.matched = False
         self.iou = 0
 
@@ -79,6 +80,14 @@ class BoundingBox:
             return "\n{} , {} , {} , {}".format(self.matched_box.x , self.matched_box.y , self.matched_box.w , self.matched_box.h)
         else:
             return "\nNO matched box found for this Bounding_box"
+
+    def save_bbox(self , file):
+        coords = self.convert2xyxy()
+        if self.ground_truth:
+            file.write("FACE {} {} {} {}\n".format(int(coords[0]) , int(coords[1]) , int(coords[2]) , int(coords[3])))
+        else:
+            file.write("FACE {} {} {} {} {}\n".format(self.conf , int(coords[0]) , int(coords[1]) , int(coords[2]) , int(coords[3])))
+
     def __repr__(self):
         return "center_X = {} , center_Y = {} , width = {} , height = {} , class = {} , iou = {} , conf = {}".format(self.x , self.y , self.w , self.h , self.cls , self.iou ,self.conf)
 
@@ -170,3 +179,13 @@ def shuffle_array(shuffled_index_list , org_array):
         shuffled_array[index] = org_array[shuffled_index]
 
     return shuffled_array
+
+
+def convert_to_file(ground_truth , detection , gt_file , det_file):
+    with open(gt_file , "w") as file:
+        for object in ground_truth:
+            object.save_bbox(file)
+
+    with open(det_file , "w") as file:
+        for object in detection:
+            object.save_bbox(file)
