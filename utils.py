@@ -66,12 +66,13 @@ class BoundingBox:
             if iou_this_box > self.iou:
                 self.iou = iou_this_box
 
-            if iou_this_box >= threshold and not det_box.matched:
-                det_box.set_status(True)
-                self.matched = True
-                self.matched_box = det_box
-                det_box.set_matched_box(self)
-                return True
+            if iou_this_box >= threshold:
+                if not det_box.matched:
+                    det_box.set_status(True)
+                    self.matched = True
+                    self.matched_box = det_box
+                    det_box.set_matched_box(self)
+                    return True
 
         return False
 

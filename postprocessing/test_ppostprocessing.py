@@ -4,7 +4,7 @@ import tensorflow as tf
 from Yolov3_tf2 import utils as comman_utils
 from Yolov3_tf2.postprocessing import tf_utils as pp_utils
 from Yolov3_tf2.preprocessing.preprocessing import DataGenerator
-from Yolov3_tf2.postprocessing.np_postprocessing import post_process
+from Yolov3_tf2.postprocessing.tf_postprocessing import post_process
 
 def test_postprocess():
     anchors = np.array([[0.17028831 , 0.35888521],
@@ -17,10 +17,11 @@ def test_postprocess():
                         [0.07297461 , 0.14739788],
                         [0.11702667 , 0.11145465]] , dtype = np.float32)
 
-    batch_size = 1
     num_batch = 1
+    batch_size = 5
     is_norm = False
     input_size = 416
+    show_image = True
     is_augment = False
     base_grid_size = 13
     grid_scales = [1,2,4]
@@ -44,11 +45,17 @@ def test_postprocess():
                                     batch_size)
 
     for index in range(num_batch):
-        batch_images , batch_labels = batch_generator.__getitem__(index)
-        temp_pred = {"large_scale_preds" : batch_labels[0] , "medium_scale_preds" : batch_labels[1] , "small_scale_preds" : batch_labels[2]}
-        box_objects = post_process(temp_pred , sorted_anchors , images = batch_images , show_image = True , class_file = "../data/classnames.txt")
-        print(box_objects)
+        batch_images , batch_labels= batch_generator.__getitem__(index)
+        # temp_pred = {"large_scale_preds" : batch_labels[0] , "medium_scale_preds" : batch_labels[1] , "small_scale_preds" : batch_labels[2]}
+        for i in range(batch_size):
+            boxes_this_image = post_process([batch_label[i:i+1] for batch_label in batch_labels], sorted_anchors)
+            print(boxes_this_image)
+            # shape = [1 , num_boxes , 6]
 
+            # show the images with bounding boxes.
+            if show_image:
+                print(class_names)
+                pp_utils.draw_predictions(batch_images[i] , boxes_this_image.numpy()[0] , class_names)
 
 if __name__ == "__main__":
     test_postprocess()

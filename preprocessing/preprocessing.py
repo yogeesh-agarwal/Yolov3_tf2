@@ -38,7 +38,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.base_grid_height = base_grid_size
         self.image_names = self.load_pickle(image_names)
         self._data = self.load_pickle(instances_file)
-        self.num_instances = min(len(self._data) , 3500)
+        self.num_instances = min(len(self._data) , 64)
 
         sometimes = lambda aug : iaa.Sometimes(0.30, aug)
         self.augmentor = iaa.Sequential([
@@ -170,7 +170,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             detector_indexes.append(window_index)
             encoded_images.append(aug_image)
 
-        return encoded_images , org_images , encoded_labels_large_objects.astype(np.float32) , encoded_labels_medium_objects.astype(np.float32) , encoded_labels_small_objects.astype(np.float32) , detector_indexes
+        return encoded_images , org_images , encoded_labels_large_objects.astype(np.float32) , encoded_labels_medium_objects.astype(np.float32) , encoded_labels_small_objects.astype(np.float32) , augmented_boxes , detector_indexes
 
     def on_epoch_end(self):
         if self.shuffle:
@@ -183,21 +183,23 @@ class DataGenerator(tf.keras.utils.Sequence):
             ending_index = len(self._data)
             starting_index = ending_index - self.batch_size
 
-        encoded_images , org_images , encoded_labels_large_objects , encoded_labels_medium_objects , encoded_labels_small_objects , detector_indexes = self.encode_data(starting_index , ending_index)
-        return encoded_images , org_images , [encoded_labels_large_objects, encoded_labels_medium_objects , encoded_labels_small_objects] , detector_indexes
+        encoded_images , org_images , encoded_labels_large_objects , encoded_labels_medium_objects , encoded_labels_small_objects , org_labels , detector_indexes = self.encode_data(starting_index , ending_index)
+        return encoded_images , org_images , [encoded_labels_large_objects, encoded_labels_medium_objects , encoded_labels_small_objects] , org_labels , detector_indexes
 
     def load_data_for_test(self , index):
-        encoded_images , org_images , encoded_labels , detector_indexes = self.load_data(index)
+        encoded_images , org_images , encoded_labels , org_labels , detector_indexes = self.load_data(index)
         return [np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3) ,
                np.array(org_images).reshape(self.batch_size ,self.input_height , self.input_width , 3) ,
                encoded_labels ,
+               org_labels ,
                detector_indexes]
 
     def __len__(self):
         return math.ceil(self.num_instances / self.batch_size)
 
     def __getitem__(self, index):
-        encoded_images , _ , encoded_labels , _ = self.load_data(index)
+        encoded_images , _ , encoded_labels , org_labels , _ = self.load_data(index)
         # keep in mind to bundle images and labels in a "tuple" , else keras will cry cause of its internal tuple centerd checks.
         return (np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3),
-                        encoded_labels)
+                        encoded_labels ,
+                        org_labels)

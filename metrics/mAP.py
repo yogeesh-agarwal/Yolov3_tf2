@@ -3,7 +3,7 @@ import tensorflow as tf
 from Yolov3_tf2.metrics import unit_metrics
 from Yolov3_tf2.metrics import utils as metric_utils
 from Yolov3_tf2.metrics import precision_recall
-from Yolov3_tf2.postprocessing import np_postprocessing
+from Yolov3_tf2.postprocessing import tf_postprocessing as post_processing
 
 # calculates f1_score for a class
 class F1_score(tf.keras.metrics.Metric):
@@ -97,17 +97,13 @@ class MeanAveragePrecision(tf.keras.metrics.Metric):
         # metric to keep track of mAP for all classes across all batches for an epoch
         self.mAP = tf.keras.metrics.Mean(name = "mAP")
 
+    @tf.autograph.experimental.do_not_convert
     def update_state(self , ground_truth , predictions , sample_weights = None):
-        box_objects = np_postprocessing.post_process(predictions ,
-                                                   self.anchors ,
-                                                   ground_truth = ground_truth ,
-                                                   num_classes = self.num_classes)
-
-        #shape = [batch_size , objects_per_instance]
-        pred_box_objects , gt_box_objects = box_objects
-        num_instances = pred_box_objects.shape[0]
+        gt_box_objects = metric_utils.gen_box_objects(ground_truth , gt = True)
+        pred_box_objects = metric_utils.gen_box_objects(predictions)
 
         # shape = [num_class , objects_per_class]
+        num_instances = len(predictions)
         gt_boxes_per_class = metric_utils.get_box_objects_per_class(gt_box_objects, self.num_classes , num_instances)
         pred_boxes_per_class = metric_utils.get_box_objects_per_class(pred_box_objects, self.num_classes , num_instances)
         ap_per_class = np.zeros(shape = (self.num_classes) , dtype = np.float32)

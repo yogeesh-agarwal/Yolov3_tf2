@@ -180,30 +180,20 @@ def read_tf_file(filename):
     tf.print(raw)
     return raw
 
-def draw_predictions(imgs , box_objects , class_names):
-    # box_objects.shape = [batch_size , num_objects_per_img]
-    # num_objects_per_img.shape = [num_obj_this_instance , 4 + 1 + 1]
-    print(box_objects.shape , imgs.shape)
-    if len(imgs) != len(box_objects):
-        raise Exception("num images is not matching num_instances of box_objects " , len(imgs) , " , " , len(box_objects))
-    for img_index in range(len(imgs)):
-        img = imgs[img_index]
-        boxes_this_image = box_objects[img_index]
-        print(boxes_this_image.shape)
-        for i in range(len(boxes_this_image)):
-            curr_box = boxes_this_image[i]
-            print(curr_box)
-            xmin = int(curr_box[0] - curr_box[2]*0.5)
-            ymin = int(curr_box[1] - curr_box[3]*0.5)
-            xmax = int(curr_box[0] + curr_box[2]*0.5)
-            ymax = int(curr_box[1] + curr_box[3]*0.5)
-            conf = str(tf.round(curr_box[4] , 2) * 100)
-            pred_class = int(curr_box[5])
-            print(pred_class)
-            label = class_names[pred_class]
-            cv2.rectangle(img , (xmin , ymin) , (xmax , ymax) , (0 , 0 , 255) , 2)
-            cv2.putText(img, label + " " + conf + "%" , (xmin , ymin) , cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 0, 0), 2)
+def draw_predictions(img , preds , class_names):
+    for i in range(preds.shape[0]):
+        curr_box = preds[i][:4]
+        curr_prob = float(preds[i][4])
+        xmin = int(curr_box[0] - curr_box[2]*0.5)
+        ymin = int(curr_box[1] - curr_box[3]*0.5)
+        xmax = int(curr_box[0] + curr_box[2]*0.5)
+        ymax = int(curr_box[1] + curr_box[3]*0.5)
+        conf = str(tf.round(curr_prob , 2).numpy() * 100)
+        pred_class = int(preds[i][5])
+        label = class_names[pred_class]
+        cv2.rectangle(img , (xmin , ymin) , (xmax , ymax) , (0 , 0 , 255) , 2)
+        cv2.putText(img, label + " " + conf + "%" , (xmin , ymin) , cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 0, 0), 2)
 
-        cv2.imshow("inference_img", img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    cv2.imshow("inference_img", img[:,:,::-1])
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()

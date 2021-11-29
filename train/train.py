@@ -8,6 +8,7 @@ from Yolov3_tf2.loss.loss import Yolov3Loss
 from Yolov3_tf2 import utils as comman_utils
 import tensorflow.keras.callbacks as callbacks_module
 from Yolov3_tf2.preprocessing.preprocessing import DataGenerator
+from Yolov3_tf2.postprocessing import tf_postprocessing as post_processing
 
 class Train():
     def __init__(self):
@@ -17,11 +18,11 @@ class Train():
         self.init_lr = 0.0001
         self.input_size = 416
         self.num_epochs = 1000
-        self.is_augment = True
+        self.is_augment = False
         self.base_grid_size = 13
         self.grid_scales = [1,2,4]
         self.load_pretrain = False
-        self.custom_training = False
+        self.custom_training = True
         self.logs_dir = "../logs/"
         self.save_dir = "../saved_models/"
         self.labels = ["Face" , "Non_Face"]
@@ -144,6 +145,19 @@ class Train():
 
         return all_predictions , loss
 
+    def process_predictions(self , all_predictions):
+        boxes_this_data = []
+        small_scale_preds = all_predictions["small_scale_preds"]
+        large_scale_preds = all_predictions["large_scale_preds"]
+        medium_scale_preds = all_predictions["medium_scale_preds"]
+        num_instances = tf.shape(large_scale_preds)[0]
+        predictions = [large_scale_preds , medium_scale_preds , small_scale_preds]
+        for index in tf.range(num_instances):
+            boxes = post_processing.post_process([prediction[index:index+1] for prediction in predictions] ,
+                                                  self.sorted_anchors ,
+                                                  num_classes = len(self.labels))
+            boxes_this_data.append(boxes)
+        return boxes_this_data
 
     @tf.function
     def train_step(self  , data):
@@ -166,9 +180,11 @@ class Train():
 
     def test_step(self , data):
         # override this function to implement custom logic for one test step (i.e. per batch)
-        images , ground_truths = data
-        all_predictions , loss = forward_step(data , training = False)
-        self.face_detector.val_mAP.update_state(ground_truths , all_predictions)
+        images , ground_truth_data = data
+        ground_truths , org_labels = ground_truth_data
+        all_predictions , loss = self.forward_step([images , ground_truths] , training = False)
+        boxes_this_batch = self.process_predictions(all_predictions)
+        self.face_detector.val_mAP.update_state(org_labels , boxes_this_batch)
         self.face_detector.val_loss_tracker.update_state(loss)
         return {"loss" : self.face_detector.val_loss_tracker.result() , "mAP" : self.face_detector.val_mAP.result()}
 
@@ -184,8 +200,8 @@ class Train():
             step = 0
             while step < self.num_batches:
                 callbacks.on_train_batch_begin(step)
-                image_data_this_batch , label_data_this_batch = self.train_data_generator.__getitem__(step)
-                train_log = train_step([image_data_this_batch , label_data_this_batch])
+                image_data_this_batch , label_data_this_batch , org_labels_this_batch = self.train_data_generator.__getitem__(step)
+                train_log = self.train_step([image_data_this_batch , label_data_this_batch])
                 if step < self.num_batches-1:
                     prog_bar.update(step+1 , values = [("train_loss" , train_log["train_loss"])])
                 else:
@@ -194,8 +210,8 @@ class Train():
                 step += 1
 
             for val_batch_idx in range(len(self.val_data_generator)):
-                val_image_data_this_batch , val_label_data_this_batch = self.val_data_generator.__getitem__(val_batch_idx)
-                val_log = test_step([val_image_data_this_batch , val_label_data_this_batch])
+                val_image_data_this_batch , val_label_data_this_batch , org_val_labels_this_batch = self.val_data_generator.__getitem__(val_batch_idx)
+                val_log = self.test_step([val_image_data_this_batch , [val_label_data_this_batch , org_val_labels_this_batch]])
 
             updated_values += [("val_loss" , val_log["loss"]) ,
                                ("val_mAP" , val_log["mAP"])]

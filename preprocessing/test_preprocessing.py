@@ -58,7 +58,7 @@ def test_preprocess():
 
     print(batch_generator.num_train_instances)
     for index in range(num_batch):
-        batch_images , batch_labels , detector_indexes = batch_generator.load_data_for_test(index)
+        batch_images , batch_labels , org_labels , detector_indexes = batch_generator.load_data_for_test(index)
         yolov1_labels , yolov2_labels , yolov3_labels = batch_labels
         print(yolov1_labels.shape , yolov2_labels.shape , yolov3_labels.shape)
         yolos = [yolov1_labels , yolov2_labels , yolov3_labels]

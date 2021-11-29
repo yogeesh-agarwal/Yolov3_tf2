@@ -38,7 +38,7 @@ def modify_locs(raw_locs , scale_anchors , gt = False):
     all_locs = np.concatenate([modified_localizations[0] , modified_localizations[1] , modified_localizations[2]] , axis = 1)
     return all_locs
 
-def nms(locs , probs , threshold = 0.5):
+def nms(locs , probs , threshold = 0.3):
     pred_order = np.argsort(probs)[::-1]
     new_locs = locs[pred_order]
     new_porbs = probs[pred_order]
@@ -124,6 +124,7 @@ def post_process(predictions,
     # all_predictions split shape = [[batch_size , 13*13*3 , 7] , [batch_size , 26*26*3 , 7] , [batch_size , 52*52*3 , 7]]
     # all_predictions shape = [batch_size , 10647 , 7]
     all_predictions = modify_locs(numpy_predictions , scale_anchors)
+    return all_predictions
     bbox_delta , confidence_scores , cls_pred = np.split(all_predictions , [4,5] , axis = -1)
     adjusted_bbox_delta = transform_bbox(bbox_delta)
     combined_probs = cls_pred * confidence_scores

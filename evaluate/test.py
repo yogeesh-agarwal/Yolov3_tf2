@@ -1,5 +1,6 @@
-from Yolov3_tf2.postprocessing import np_postprocessing as post_processing
+from Yolov3_tf2.postprocessing import tf_postprocessing as post_processing
 from Yolov3_tf2.preprocessing.preprocessing import DataGenerator
+from Yolov3_tf2.postprocessing import tf_utils as pp_utils
 from Yolov3_tf2 import utils as comman_utils
 from Yolov3_tf2.loss.loss import Yolov3Loss
 from Yolov3_tf2.model import yolov3
@@ -11,7 +12,7 @@ import os
 
 class Evaluate(object):
     def __init__(self):
-        self.num_batch = 2
+        self.num_batch = 1
         self.is_norm = True
         self.batch_size = 5
         self.input_size = 416
@@ -26,6 +27,7 @@ class Evaluate(object):
         self.darknet53_weights = "../data/conv_weights.pickle"
         self.gt_data_file = "../data/wider_validation_data.pickle"
         self.gt_images_file = "../data/wider_val_images_names.pickle"
+        self.class_names = pp_utils.load_class_names("../data/classnames.txt")
         self.data_path = "/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_val/WIDER_val/images/"
 
         self.anchors = np.array([[0.17028831 , 0.35888521],
@@ -66,28 +68,22 @@ class Evaluate(object):
         model.load_weights(latest_chkpnt)
         return model
 
-    def predict(self , batch_generator , model , process_gt = False  ,show_out = False):
-        gt_box_objects = []
-        pred_box_objects = []
+    def predict(self , batch_generator , model ,show_out = False):
+
         for index in range(self.num_batch):
-            batch_images , org_images , batch_labels , _ = batch_generator.load_data_for_test(index)
-            predictions = model(batch_images, training = False)
-            print("model prediction completed for batch {}".format(index))
-            box_objects = post_processing.post_process(predictions ,
-                                                       self.sorted_anchors ,
-                                                       ground_truth = None if not process_gt else batch_labels ,
-                                                       images = org_images ,
-                                                       show_image = show_out ,
-                                                       class_file = "../data/classnames.txt")
-            for pred_bo in box_objects[0]:
-                pred_box_objects.append(pred_bo)
-            if process_gt:
-                for gt_bo in box_objects[1]:
-                    gt_box_objects.append(gt_bo)
-
-            print(len(gt_box_objects))
-
-        return [pred_box_objects] if not process_gt else [pred_box_objects , gt_box_objects]
+            batch_images , org_images , batch_labels , org_labels , _ = batch_generator.load_data_for_test(index)
+            predictions_dict = model(batch_images, training = False)
+            large_scale_preds = predictions_dict["large_scale_preds"]
+            medium_scale_preds = predictions_dict["medium_scale_preds"]
+            small_scale_preds = predictions_dict["small_scale_preds"]
+            predictions = [large_scale_preds , medium_scale_preds , small_scale_preds]
+            for img_i in range(batch_images.shape[0]):
+                boxes_this_image = post_processing.post_process([prediction[img_i:img_i+1] for prediction in predictions] ,
+                                                                self.sorted_anchors)
+                # boxes_this_image = post_processing.post_process([batch_label[img_i:img_i+1] for batch_label in batch_labels] ,
+                #                                                 self.sorted_anchors)
+                if show_out:
+                    pp_utils.draw_predictions(org_images[img_i] , boxes_this_image.numpy()[0] , self.class_names)
 
     def write_boxes(self , pred_box_objects , gt_box_objects):
         if len(pred_box_objects) != len(gt_box_objects):
@@ -112,22 +108,10 @@ class Evaluate(object):
     def evaluate(self , mAP = False):
         yolov3 = self.create_model("../saved_models")
         batch_generator = self.create_datagen()
-        box_objects = self.predict(batch_generator , yolov3 , show_out = False , process_gt = True)
-        if len(box_objects) == 2:
-            self.write_boxes(box_objects[0] , box_objects[1])
-
-
+        self.predict(batch_generator , yolov3 , show_out = True)
+        # if mAP and len(box_objects) == 2:
+        #     self.write_boxes(box_objects[0] , box_objects[1])
 
 if __name__ == "__main__":
-    # image = cv2.imread("../data/0_Parade_marchingband_1_849.jpg")
-    # # image = cv2.imread("../data/0_Parade_Parade_0_904.jpg")
-    # # image = cv2.imread("../data/2_Demonstration_Demonstration_Or_Protest_2_2.jpg")
-    # image = cv2.imread("/home/yogeesh/yogeesh/datasets/face_detection/wider face/WIDER_test/images/0--Parade/0_Parade_marchingband_1_250.jpg")
-    # image = cv2.cvtColor(image ,cv2.COLOR_BGR2RGB)
-    # image = cv2.resize(image , (416,416))
-    # aug_image = np.array(image).reshape(1,416,416,3) / 255.
-    # yolov3 = create_model("../saved_models")
-    # predict(aug_image , image , yolov3)
-
     evaluator = Evaluate()
     evaluator.evaluate()
