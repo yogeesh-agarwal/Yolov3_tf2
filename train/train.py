@@ -18,10 +18,11 @@ class Train():
         self.init_lr = 0.0001
         self.input_size = 416
         self.num_epochs = 1000
-        self.is_augment = False
+        self.is_augment = True
         self.base_grid_size = 13
         self.grid_scales = [1,2,4]
         self.load_pretrain = False
+        self.val_inst_count = 10
         self.custom_training = True
         self.logs_dir = "../logs/"
         self.save_dir = "../saved_models/"
@@ -61,7 +62,8 @@ class Train():
                                              self.labels ,
                                              self.is_norm ,
                                              self.is_augment,
-                                             self.batch_size)
+                                             self.batch_size,
+                                             100)
         self.num_batches = len(self.train_data_generator)
 
         #define validation data generator
@@ -74,8 +76,9 @@ class Train():
                                              self.val_image_names ,
                                              self.labels ,
                                              self.is_norm ,
-                                             self.is_augment,
-                                             self.batch_size)
+                                             False,
+                                             self.batch_size,
+                                             self.val_inst_count)
 
         #define yolov3 model ,
         # make sure to provide weight and bn_weights path if load_pretrain is True else darknet53 will be initialzed from scratch.
@@ -200,7 +203,7 @@ class Train():
             step = 0
             while step < self.num_batches:
                 callbacks.on_train_batch_begin(step)
-                image_data_this_batch , label_data_this_batch , org_labels_this_batch = self.train_data_generator.__getitem__(step)
+                image_data_this_batch , label_data_this_batch , org_labels_this_batch = self.train_data_generator.__getitem_custom__(step)
                 train_log = self.train_step([image_data_this_batch , label_data_this_batch])
                 if step < self.num_batches-1:
                     prog_bar.update(step+1 , values = [("train_loss" , train_log["train_loss"])])
@@ -210,7 +213,7 @@ class Train():
                 step += 1
 
             for val_batch_idx in range(len(self.val_data_generator)):
-                val_image_data_this_batch , val_label_data_this_batch , org_val_labels_this_batch = self.val_data_generator.__getitem__(val_batch_idx)
+                val_image_data_this_batch , val_label_data_this_batch , org_val_labels_this_batch = self.val_data_generator.__getitem_custom__(val_batch_idx)
                 val_log = self.test_step([val_image_data_this_batch , [val_label_data_this_batch , org_val_labels_this_batch]])
 
             updated_values += [("val_loss" , val_log["loss"]) ,

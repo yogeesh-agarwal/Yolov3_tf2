@@ -40,6 +40,7 @@ def modify_locs(raw_locs , scale_anchors , img_size = 416 , gt = False):
     return all_locs
 
 def nms(locs , probs , threshold = 0.3):
+    tf.print(probs)
     pred_order = tf.argsort(probs)[::-1]
     new_locs = tf.gather(locs , pred_order , axis = 0)
     new_porbs = tf.gather(probs , pred_order)
@@ -90,7 +91,7 @@ def post_process(predictions,
                  anchors,
                  num_classes = 2):
 
-    filter_threshold = 0.65
+    filter_threshold = 0.7
     scale_anchors = [anchors[0:3] , anchors[3:6] , anchors[6:9]]
 
     # all_predictions split shape = [[batch_size , 13*13*3 , 7] , [batch_size , 26*26*3 , 7] , [batch_size , 52*52*3 , 7]]

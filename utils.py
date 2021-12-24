@@ -1,3 +1,4 @@
+import cv2
 import sys
 import numpy as np
 import tensorflow as tf
@@ -88,6 +89,16 @@ class BoundingBox:
             file.write("FACE {} {} {} {}\n".format(int(coords[0]) , int(coords[1]) , int(coords[2]) , int(coords[3])))
         else:
             file.write("FACE {} {} {} {} {}\n".format(self.conf , int(coords[0]) , int(coords[1]) , int(coords[2]) , int(coords[3])))
+
+    def draw_box(self , image , class_names):
+        if self.ground_truth:
+            self.conf = 100.0
+            self.cls = 0
+        coords = self.convert2xyxy()
+        cv2.rectangle(image , (int(coords[0]) , int(coords[1])) , (int(coords[2]) , int(coords[3])) , (0 , 0 , 255) , 2)
+        cv2.putText(image, class_names[self.cls] + " " + str(self.conf) + "%" , (int(coords[0]) , int(coords[1])) , cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 0, 0), 2)
+        return image
+
 
     def __repr__(self):
         return "center_X = {} , center_Y = {} , width = {} , height = {} , class = {} , iou = {} , conf = {}".format(self.x , self.y , self.w , self.h , self.cls , self.iou ,self.conf)

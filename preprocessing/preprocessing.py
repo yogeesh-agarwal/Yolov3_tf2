@@ -22,7 +22,8 @@ class DataGenerator(tf.keras.utils.Sequence):
                         labels ,
                         is_norm ,
                         is_augment ,
-                        batch_size):
+                        batch_size ,
+                        num_instances = None):
         self.shuffle = False
         self.labels = labels
         self.anchors = anchors
@@ -38,7 +39,9 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.base_grid_height = base_grid_size
         self.image_names = self.load_pickle(image_names)
         self._data = self.load_pickle(instances_file)
-        self.num_instances = min(len(self._data) , 64)
+        self.num_instances = num_instances
+        if num_instances is None:
+            self.num_instances = min(len(self._data) , 5000)
 
         sometimes = lambda aug : iaa.Sometimes(0.30, aug)
         self.augmentor = iaa.Sequential([
@@ -46,17 +49,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             sometimes(iaa.Affine(
                 rotate = (-20 , 20),
                 shear = (-13 , 13),
-            )),
-            iaa.SomeOf((0 , 5),
-            [
-                iaa.OneOf([
-                    iaa.GaussianBlur((0 , 3.0)),
-                    iaa.AverageBlur(k =  (2 , 7)),
-                    iaa.MedianBlur(k = (3 , 11)),
-                ]),
-                iaa.Sharpen(alpha = (0 , 1.0) , lightness = (0.75 , 1.5)),
-            ] , random_order = True)
-        ] , random_order = True)
+            ))] , random_order = True)
 
     def load_pickle(self , filepath):
         with open(filepath , "rb") as content:
@@ -197,9 +190,15 @@ class DataGenerator(tf.keras.utils.Sequence):
     def __len__(self):
         return math.ceil(self.num_instances / self.batch_size)
 
-    def __getitem__(self, index):
+    def __getitem_custom__(self , index):
         encoded_images , _ , encoded_labels , org_labels , _ = self.load_data(index)
         # keep in mind to bundle images and labels in a "tuple" , else keras will cry cause of its internal tuple centerd checks.
         return (np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3),
                         encoded_labels ,
                         org_labels)
+
+    def __getitem__(self, index):
+        encoded_images , _ , encoded_labels , org_labels , _ = self.load_data(index)
+        # keep in mind to bundle images and labels in a "tuple" , else keras will cry cause of its internal tuple centerd checks.
+        return (np.array(encoded_images).reshape(self.batch_size , self.input_height , self.input_width , 3),
+                        encoded_labels)

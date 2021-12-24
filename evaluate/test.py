@@ -1,3 +1,4 @@
+from Yolov3_tf2.metrics import utils as metric_utils
 from Yolov3_tf2.postprocessing import tf_postprocessing as post_processing
 from Yolov3_tf2.preprocessing.preprocessing import DataGenerator
 from Yolov3_tf2.postprocessing import tf_utils as pp_utils
@@ -14,7 +15,7 @@ class Evaluate(object):
     def __init__(self):
         self.num_batch = 1
         self.is_norm = True
-        self.batch_size = 5
+        self.batch_size = 10
         self.input_size = 416
         self.is_augment = False
         self.base_grid_size = 13
@@ -69,7 +70,9 @@ class Evaluate(object):
         return model
 
     def predict(self , batch_generator , model ,show_out = False):
-
+        pred_box_list = []
+        gt_box_list = []
+        all_images = []
         for index in range(self.num_batch):
             batch_images , org_images , batch_labels , org_labels , _ = batch_generator.load_data_for_test(index)
             predictions_dict = model(batch_images, training = False)
@@ -82,11 +85,16 @@ class Evaluate(object):
                                                                 self.sorted_anchors)
                 # boxes_this_image = post_processing.post_process([batch_label[img_i:img_i+1] for batch_label in batch_labels] ,
                 #                                                 self.sorted_anchors)
+                pred_box_list.append(boxes_this_image)
+                gt_box_list.append(org_labels[img_i])
+                all_images.append(org_images[img_i])
                 if show_out:
                     pp_utils.draw_predictions(org_images[img_i] , boxes_this_image.numpy()[0] , self.class_names)
 
-    def write_boxes(self , pred_box_objects , gt_box_objects):
-        if len(pred_box_objects) != len(gt_box_objects):
+        return gt_box_list , pred_box_list , all_images
+
+    def write_boxes(self , pred_box_list , gt_box_list , all_images):
+        if len(pred_box_list) != len(gt_box_list):
             raise Exception("pred_box_objects length should match with gt_box_objects length")
 
         if os.path.isdir(self.detections_folder):
@@ -99,7 +107,10 @@ class Evaluate(object):
             os.makedirs(self.gt_folder)
         else:
             os.makedirs(self.gt_folder)
-        for index in range(len(pred_box_objects)):
+
+        gt_box_objects = metric_utils.gen_box_objects(gt_box_list , gt = True)
+        pred_box_objects = metric_utils.gen_box_objects(pred_box_list)
+        for index in range(len(pred_box_list)):
             gt_path = self.gt_folder + "image_{}.txt".format(index)
             det_path = self.detections_folder + "image_{}.txt".format(index)
             comman_utils.convert_to_file(gt_box_objects[index] , pred_box_objects[index] , gt_path , det_path)
@@ -108,10 +119,11 @@ class Evaluate(object):
     def evaluate(self , mAP = False):
         yolov3 = self.create_model("../saved_models")
         batch_generator = self.create_datagen()
-        self.predict(batch_generator , yolov3 , show_out = True)
-        # if mAP and len(box_objects) == 2:
-        #     self.write_boxes(box_objects[0] , box_objects[1])
+        gt_box_objects , pred_box_objects , all_images = self.predict(batch_generator , yolov3 , show_out = False)
+        if mAP:
+            self.write_boxes(pred_box_objects , gt_box_objects ,all_images)
 
 if __name__ == "__main__":
+    cal_map = True
     evaluator = Evaluate()
-    evaluator.evaluate()
+    evaluator.evaluate(cal_map)

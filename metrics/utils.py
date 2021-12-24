@@ -1,3 +1,4 @@
+import pdb
 import numpy as np
 import Yolov3_tf2.utils as comman_utils
 
@@ -8,7 +9,7 @@ def gen_box_objects(boxes , gt = False):
         if not gt:
             boxes_per_instance = boxes_per_instance[0]
         for box in boxes_per_instance:
-            b_object = comman_utils.BoundingBox(box[0] , box[1] , box[2] , box[3] , center = True , gt = gt)
+            b_object = comman_utils.BoundingBox(box[0] , box[1] , box[2] , box[3] , center = not gt , gt = gt)
             if gt:
                 b_object.add_confidence(1.)
                 b_object.add_class(0)

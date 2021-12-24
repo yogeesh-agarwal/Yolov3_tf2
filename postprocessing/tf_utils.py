@@ -180,19 +180,35 @@ def read_tf_file(filename):
     tf.print(raw)
     return raw
 
-def draw_predictions(img , preds , class_names):
+def draw_predictions(img , preds , class_names , gt = False):
     for i in range(preds.shape[0]):
         curr_box = preds[i][:4]
-        curr_prob = float(preds[i][4])
-        xmin = int(curr_box[0] - curr_box[2]*0.5)
-        ymin = int(curr_box[1] - curr_box[3]*0.5)
-        xmax = int(curr_box[0] + curr_box[2]*0.5)
-        ymax = int(curr_box[1] + curr_box[3]*0.5)
-        conf = str(tf.round(curr_prob , 2).numpy() * 100)
-        pred_class = int(preds[i][5])
+        if not gt:
+            xmin = int(curr_box[0] - curr_box[2]*0.5)
+            ymin = int(curr_box[1] - curr_box[3]*0.5)
+            xmax = int(curr_box[0] + curr_box[2]*0.5)
+            ymax = int(curr_box[1] + curr_box[3]*0.5)
+            curr_prob = float(preds[i][4])
+            conf = str(tf.round(curr_prob , 2).numpy() * 100)
+            pred_class = int(preds[i][5])
+        else:
+            xmin = int(curr_box[0])
+            ymin = int(curr_box[1])
+            xmax = int(curr_box[0] + curr_box[2])
+            ymax = int(curr_box[1] + curr_box[3])
+            conf = "100"
+            pred_class = 0
         label = class_names[pred_class]
         cv2.rectangle(img , (xmin , ymin) , (xmax , ymax) , (0 , 0 , 255) , 2)
         cv2.putText(img, label + " " + conf + "%" , (xmin , ymin) , cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 0, 0), 2)
+
+    cv2.imshow("inference_img", img[:,:,::-1])
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def draw_box_objects(img , box_objects , class_names):
+    for b_object in box_objects:
+        img = b_object.draw_box(img , class_names)
 
     cv2.imshow("inference_img", img[:,:,::-1])
     cv2.waitKey(0)

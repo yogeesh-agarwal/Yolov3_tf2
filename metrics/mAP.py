@@ -82,6 +82,7 @@ class MeanAveragePrecision(tf.keras.metrics.Metric):
                  name = "mAP" ,
                  **kwargs):
         super().__init__(name = name , **kwargs)
+
         self.anchors = anchors
         self.num_classes = num_classes
         self.unit_metrics = unit_metrics.UnitMetrics(threshold , self.num_classes)
