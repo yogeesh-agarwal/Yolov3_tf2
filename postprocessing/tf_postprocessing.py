@@ -40,7 +40,9 @@ def modify_locs(raw_locs , scale_anchors , img_size = 416 , gt = False):
     return all_locs
 
 def nms(locs , probs , threshold = 0.3):
-    tf.print(probs)
+    # convert the scalar probs to 1 rank tensor (0 dimension tensor in argsort function bug.)
+    rank = tf.rank(probs)
+    probs = tf.cond(rank==0 , lambda : tf.expand_dims(probs , axis = 0) , lambda : probs)
     pred_order = tf.argsort(probs)[::-1]
     new_locs = tf.gather(locs , pred_order , axis = 0)
     new_porbs = tf.gather(probs , pred_order)
@@ -69,12 +71,14 @@ def filter_predictions(localizations , det_probs_this_inst , det_class_this_inst
 
         for c in tf.range(num_classes):
             index_per_class = tf.cast(tf.where(cls_idx == c) , tf.int32)
-            keep_indcs = nms(tf.squeeze(tf.gather(locs , index_per_class , axis = 0)) , tf.squeeze(tf.gather(probs , index_per_class)))
-            for i in tf.range(tf.shape(keep_indcs)[0]):
-                if tf.cast(keep_indcs[i] , tf.bool):
-                    final_boxes = final_boxes.write(final_boxes.size() , locs[index_per_class[i][0]])
-                    final_probs = final_probs.write(final_probs.size() , probs[index_per_class[i][0]])
-                    final_class = final_class.write(final_class.size() , c)
+
+            if len(index_per_class) > 0:
+                keep_indcs = nms(tf.squeeze(tf.gather(locs , index_per_class , axis = 0)) , tf.squeeze(tf.gather(probs , index_per_class)))
+                for i in tf.range(tf.shape(keep_indcs)[0]):
+                    if tf.cast(keep_indcs[i] , tf.bool):
+                        final_boxes = final_boxes.write(final_boxes.size() , locs[index_per_class[i][0]])
+                        final_probs = final_probs.write(final_probs.size() , probs[index_per_class[i][0]])
+                        final_class = final_class.write(final_class.size() , c)
 
     return [final_boxes.stack() , final_probs.stack() , final_class.stack()]
 

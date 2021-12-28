@@ -1,6 +1,7 @@
 from Yolov3_tf2.metrics import utils as metric_utils
 from Yolov3_tf2.postprocessing import tf_postprocessing as post_processing
 from Yolov3_tf2.preprocessing.preprocessing import DataGenerator
+from Yolov3_tf2.evaluate.testing_modules import TestingModules
 from Yolov3_tf2.postprocessing import tf_utils as pp_utils
 from Yolov3_tf2 import utils as comman_utils
 from Yolov3_tf2.loss.loss import Yolov3Loss
@@ -13,9 +14,9 @@ import os
 
 class Evaluate(object):
     def __init__(self):
-        self.num_batch = 1
+        self.num_batch = 50
         self.is_norm = True
-        self.batch_size = 10
+        self.batch_size = 20
         self.input_size = 416
         self.is_augment = False
         self.base_grid_size = 13
@@ -54,7 +55,9 @@ class Evaluate(object):
                                         self.labels ,
                                         self.is_norm ,
                                         self.is_augment ,
-                                        self.batch_size)
+                                        self.batch_size ,
+                                        testing = True,
+                                        shuffle_during_test = True)
         return batch_generator
 
     def create_model(self , chkpnt_dir):
@@ -68,30 +71,6 @@ class Evaluate(object):
                                bn_weights_path = self.darknet53_bn)
         model.load_weights(latest_chkpnt)
         return model
-
-    def predict(self , batch_generator , model ,show_out = False):
-        pred_box_list = []
-        gt_box_list = []
-        all_images = []
-        for index in range(self.num_batch):
-            batch_images , org_images , batch_labels , org_labels , _ = batch_generator.load_data_for_test(index)
-            predictions_dict = model(batch_images, training = False)
-            large_scale_preds = predictions_dict["large_scale_preds"]
-            medium_scale_preds = predictions_dict["medium_scale_preds"]
-            small_scale_preds = predictions_dict["small_scale_preds"]
-            predictions = [large_scale_preds , medium_scale_preds , small_scale_preds]
-            for img_i in range(batch_images.shape[0]):
-                boxes_this_image = post_processing.post_process([prediction[img_i:img_i+1] for prediction in predictions] ,
-                                                                self.sorted_anchors)
-                # boxes_this_image = post_processing.post_process([batch_label[img_i:img_i+1] for batch_label in batch_labels] ,
-                #                                                 self.sorted_anchors)
-                pred_box_list.append(boxes_this_image)
-                gt_box_list.append(org_labels[img_i])
-                all_images.append(org_images[img_i])
-                if show_out:
-                    pp_utils.draw_predictions(org_images[img_i] , boxes_this_image.numpy()[0] , self.class_names)
-
-        return gt_box_list , pred_box_list , all_images
 
     def write_boxes(self , pred_box_list , gt_box_list , all_images):
         if len(pred_box_list) != len(gt_box_list):
@@ -116,14 +95,27 @@ class Evaluate(object):
             comman_utils.convert_to_file(gt_box_objects[index] , pred_box_objects[index] , gt_path , det_path)
             print("image {} boxes have been written".format(index))
 
-    def evaluate(self , mAP = False):
+    def evaluate(self , testing_modules , input_type , mAP = False , show_out = True):
         yolov3 = self.create_model("../saved_models")
-        batch_generator = self.create_datagen()
-        gt_box_objects , pred_box_objects , all_images = self.predict(batch_generator , yolov3 , show_out = False)
-        if mAP:
-            self.write_boxes(pred_box_objects , gt_box_objects ,all_images)
+        if input_type == "batch_input":
+            batch_generator = self.create_datagen()
+            gt_box_objects , pred_box_objects , all_images = testing_modules.predict_batch_input(batch_generator , yolov3 , show_out = show_out)
+            if mAP:
+                self.write_boxes(pred_box_objects , gt_box_objects ,all_images)
+
+        elif input_type == "webcam_input":
+            testing_modules.predict_webcam_input(yolov3)
+
+        else:
+            raise Exception("Input type not supported")
 
 if __name__ == "__main__":
-    cal_map = True
+    cal_map = False
+    show_det = True
+    input_type = "batch_input"
     evaluator = Evaluate()
-    evaluator.evaluate(cal_map)
+    testing_modules = TestingModules(evaluator.num_batch,
+                                     evaluator.input_size,
+                                     evaluator.sorted_anchors,
+                                     evaluator.class_names)
+    evaluator.evaluate(testing_modules , input_type , cal_map , show_det)

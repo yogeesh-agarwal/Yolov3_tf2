@@ -180,7 +180,7 @@ def read_tf_file(filename):
     tf.print(raw)
     return raw
 
-def draw_predictions(img , preds , class_names , gt = False):
+def draw_predictions(img , preds , class_names , gt = False , waitkey_inp = True , invert_img = True):
     for i in range(preds.shape[0]):
         curr_box = preds[i][:4]
         if not gt:
@@ -202,9 +202,12 @@ def draw_predictions(img , preds , class_names , gt = False):
         cv2.rectangle(img , (xmin , ymin) , (xmax , ymax) , (0 , 0 , 255) , 2)
         cv2.putText(img, label + " " + conf + "%" , (xmin , ymin) , cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 0, 0), 2)
 
-    cv2.imshow("inference_img", img[:,:,::-1])
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if invert_img:
+        img = img[:,:,::-1]
+    cv2.imshow("inference_img", img)
+    if waitkey_inp:
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 def draw_box_objects(img , box_objects , class_names):
     for b_object in box_objects:

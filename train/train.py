@@ -18,12 +18,12 @@ class Train():
         self.init_lr = 0.0001
         self.input_size = 416
         self.num_epochs = 1000
-        self.is_augment = True
+        self.is_augment = False
         self.base_grid_size = 13
+        self.val_inst_count = 10
         self.grid_scales = [1,2,4]
         self.load_pretrain = False
-        self.val_inst_count = 10
-        self.custom_training = True
+        self.custom_training = False
         self.logs_dir = "../logs/"
         self.save_dir = "../saved_models/"
         self.labels = ["Face" , "Non_Face"]
@@ -62,8 +62,7 @@ class Train():
                                              self.labels ,
                                              self.is_norm ,
                                              self.is_augment,
-                                             self.batch_size,
-                                             100)
+                                             self.batch_size)
         self.num_batches = len(self.train_data_generator)
 
         #define validation data generator

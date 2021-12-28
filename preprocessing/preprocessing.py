@@ -23,9 +23,12 @@ class DataGenerator(tf.keras.utils.Sequence):
                         is_norm ,
                         is_augment ,
                         batch_size ,
-                        num_instances = None):
+                        testing = False ,
+                        num_instances = None ,
+                        shuffle_during_test = False):
         self.shuffle = False
         self.labels = labels
+        self.testing = testing
         self.anchors = anchors
         self.is_norm = is_norm
         self.data_path = data_path
@@ -35,11 +38,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.grid_scales = grid_scales
         self.input_height = input_size
         self.num_anchors_per_stage = 3
+        self.num_instances = num_instances
         self.base_grid_width = base_grid_size
         self.base_grid_height = base_grid_size
+        self.shuffle_during_test = shuffle_during_test
         self.image_names = self.load_pickle(image_names)
         self._data = self.load_pickle(instances_file)
-        self.num_instances = num_instances
         if num_instances is None:
             self.num_instances = min(len(self._data) , 5000)
 
@@ -79,6 +83,8 @@ class DataGenerator(tf.keras.utils.Sequence):
         images = []
         labels = []
         for instances_index in range(starting_index , ending_index):
+            if self.testing and self.shuffle_during_test:
+                np.random.shuffle(self.image_names)
             image_path = os.path.join(self.data_path , self.image_names[instances_index])
             image = cv2.cvtColor(cv2.imread(image_path) , cv2.COLOR_BGR2RGB)
             image = cv2.resize(image , (self.input_width , self.input_height))
