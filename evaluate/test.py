@@ -95,7 +95,7 @@ class Evaluate(object):
             comman_utils.convert_to_file(gt_box_objects[index] , pred_box_objects[index] , gt_path , det_path)
             print("image {} boxes have been written".format(index))
 
-    def evaluate(self , testing_modules , input_type , mAP = False , show_out = True):
+    def evaluate(self , testing_modules , input_type , video_file_path = "../data/fv_2.mp4" , mAP = False , show_out = True):
         yolov3 = self.create_model("../saved_models")
         if input_type == "batch_input":
             batch_generator = self.create_datagen()
@@ -106,16 +106,19 @@ class Evaluate(object):
         elif input_type == "webcam_input":
             testing_modules.predict_webcam_input(yolov3)
 
+        elif input_type == "video_input":
+            testing_modules.predict_video_input(yolov3 , video_file_path)
+
         else:
             raise Exception("Input type not supported")
 
 if __name__ == "__main__":
-    cal_map = False
-    show_det = True
+    cal_map = True
+    show_det = False
     input_type = "batch_input"
     evaluator = Evaluate()
     testing_modules = TestingModules(evaluator.num_batch,
                                      evaluator.input_size,
                                      evaluator.sorted_anchors,
                                      evaluator.class_names)
-    evaluator.evaluate(testing_modules , input_type , cal_map , show_det)
+    evaluator.evaluate(testing_modules , input_type , mAP = cal_map , show_out = show_det)

@@ -7,3 +7,4 @@
 /logs/*
 /data/detections/*
 /data/ground_truths/*
+/data/*.mp4

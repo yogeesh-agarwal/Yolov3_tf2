@@ -42,6 +42,34 @@ class TestingModules():
         cap.release()
         cv2.destroyAllWindows()
 
+    def predict_video_input(self , model , video_file_path):
+        if model is None:
+            raise Exception("Detection model cannot be None")
+
+        print(video_file_path)
+        cap = cv2.VideoCapture(video_file_path)
+        while(cap.isOpened()):
+            stime = time.time()
+            ret , frame = cap.read()
+            preprocessed_frame = np.array(cv2.resize(cv2.cvtColor(frame , cv2.COLOR_BGR2RGB) , (self.input_size,self.input_size)) , dtype = np.float32)
+            inp_frame = preprocessed_frame.reshape(1,self.input_size,self.input_size,3) / 255.0
+            predictions_dict = model(inp_frame , training = False)
+            large_scale_preds = predictions_dict["large_scale_preds"]
+            medium_scale_preds = predictions_dict["medium_scale_preds"]
+            small_scale_preds = predictions_dict["small_scale_preds"]
+            predictions = [large_scale_preds , medium_scale_preds , small_scale_preds]
+            if ret:
+                boxes_this_frame = post_processing.post_process([prediction[0:1] for prediction in predictions] ,
+                                                            self.sorted_anchors)
+                pp_utils.draw_predictions(cv2.resize(frame , (self.input_size,self.input_size)) , boxes_this_frame.numpy()[0] , self.class_names , waitkey_inp = False , invert_img = False)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                print('FPS {:1f}'.format(1/(time.time() - stime)))
+            else:
+                break
+        cap.release()
+        cv2.destroyAllWindows()
+
     def predict_batch_input(self , batch_generator , model ,show_out = False):
         pred_box_list = []
         gt_box_list = []
